@@ -52,7 +52,6 @@ The `DrawContext` structure holds the state necessary for rendering:
 
 - **`surface`**: The window surface that is rendered to.
 - **`device`**: The GPU device used to interact with the hardware.
-- **`queue`**: The command queue used to submit rendering commands.
 - **`config`**: The surface configuration, including window size, format, and other parameters.
 - **`vger`**: The `Vger` instance used to perform high-level 2D drawing.
 
