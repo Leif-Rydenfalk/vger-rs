@@ -168,7 +168,11 @@ impl Vger {
                 label: Some("image_bind_group_layout"),
             });
 
-        let glyph_cache = GlyphCache::new(&device);
+        let glyph_cache = GlyphCache::new(
+            &device,
+            // include_bytes!("fonts/Anodina-Regular.ttf") as &[u8],
+            include_bytes!("fonts/Sniglet/Sniglet-Regular.ttf") as &[u8],
+        );
 
         let texture_view = glyph_cache.create_view();
 
@@ -282,6 +286,10 @@ impl Vger {
             image_bind_group_layout,
             default_image_bind_group,
         }
+    }
+
+    pub fn use_font(&mut self, font_bytes: &[u8]) {
+        self.glyph_cache = GlyphCache::new(&self.device, font_bytes);
     }
 
     /// Begin rendering.
