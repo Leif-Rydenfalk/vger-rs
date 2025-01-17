@@ -64,11 +64,6 @@ This function is responsible for setting up the rendering context. It performs t
 - Configures the GPU device and queue.
 - Sets up the `vger` library for rendering.
 
-In the case of WebAssembly (WASM), it also:
-
-- Initializes logging.
-- Appends the window canvas to the HTML document body.
-
 ### `render`
 
 The `render` function is responsible for drawing content to the screen using `vger`. It performs the following tasks:
