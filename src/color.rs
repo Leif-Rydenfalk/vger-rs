@@ -140,3 +140,25 @@ const fn hex_digit(x: u8) -> usize {
         panic!("bad hex digit")
     }) as usize
 }
+
+pub trait VgerColor {
+    fn to_color(&self) -> Color;
+}
+
+impl VgerColor for [f32; 4] {
+    fn to_color(&self) -> Color {
+        Color::new(self[0], self[1], self[2], self[3])
+    }
+}
+
+impl VgerColor for [f32; 3] {
+    fn to_color(&self) -> Color {
+        Color::new(self[0], self[1], self[2], 1.0)
+    }
+}
+
+impl VgerColor for Color {
+    fn to_color(&self) -> Color {
+        *self
+    }
+}

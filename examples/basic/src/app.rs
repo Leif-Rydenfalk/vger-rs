@@ -102,6 +102,18 @@ fn render(vger: &mut Vger, window_size: [f32; 2]) {
 
     vger.fill_circle([0.0, 0.0], 10.0, paint);
 
+    vger.text(
+        "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+        15,
+        Color {
+            r: 1.0,
+            g: 1.0,
+            b: 1.0,
+            a: 1.0,
+        },
+        None,
+    );
+
     vger.restore();
 }
 

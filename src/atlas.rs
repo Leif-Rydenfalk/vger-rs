@@ -183,7 +183,7 @@ impl Atlas {
     }
 
     pub fn usage(&self) -> f32 {
-        (self.area_used as f32) / ((Atlas::ATLAS_SIZE * Atlas::ATLAS_SIZE) as f32)
+        self.area_used as f32 / (Atlas::ATLAS_SIZE * Atlas::ATLAS_SIZE) as f32
     }
 
     pub fn clear(&mut self) {
