@@ -74,11 +74,10 @@ In the case of WebAssembly (WASM), it also:
 
 The `render` function is responsible for drawing content to the screen using `vger`. It performs the following tasks:
 
-- Saves the current drawing state.
-- Translates the drawing context to the center of the window.
+- Saving and restoring drawing state.
+- Translates the drawing context.
 - Draws a red circle at the center of the window.
-- Renders sample text ("Lorem ipsum").
-- Restores the previous drawing state.
+- Renders sample text.
 
 ### `App`
 
