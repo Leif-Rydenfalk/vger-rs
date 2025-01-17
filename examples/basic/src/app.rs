@@ -11,7 +11,6 @@ use vger::*;
 struct DrawContext {
     surface: wgpu::Surface<'static>, // The surface (window) to render to.
     device: Arc<wgpu::Device>,       // The GPU device used for rendering operations.
-    queue: Arc<wgpu::Queue>,         // The command queue to submit rendering commands.
     config: wgpu::SurfaceConfiguration, // Configuration for the surface (window), including size and format.
     vger: Vger,                         // The Vger instance used to perform high-level 2D drawing.
 }
@@ -98,7 +97,6 @@ async fn setup(window: Arc<Window>) -> DrawContext {
     DrawContext {
         surface,
         device,
-        queue,
         config,
         vger,
     }

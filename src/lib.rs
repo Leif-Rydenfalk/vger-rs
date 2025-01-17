@@ -115,7 +115,6 @@ impl Vger {
         )
     }
 
-    /// Create a new renderer given a device and output pixel format.
     pub fn new_with_font(
         device: Arc<wgpu::Device>,
         queue: Arc<wgpu::Queue>,
