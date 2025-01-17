@@ -1,0 +1,12 @@
+[package]
+name = "basic"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+vger = { path = "../../" }
+winit = "0.30"
+nanorand = { version = "0.7" }
+wgpu = { workspace = true }
+futures = "0.3"
