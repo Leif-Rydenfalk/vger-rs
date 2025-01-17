@@ -86,7 +86,13 @@ async fn setup(window: Arc<Window>) -> DrawContext {
     surface.configure(&device, &config);
 
     // Create the Vger instance for 2D rendering with the selected device and queue
-    let vger = Vger::new(device.clone(), queue.clone(), config.format);
+    // let vger = Vger::new(device.clone(), queue.clone(), config.format);
+    let vger = Vger::new_with_font(
+        device.clone(),
+        queue.clone(),
+        config.format,
+        include_bytes!("../../../assets/fonts/Sniglet/Sniglet-Regular.ttf") as &[u8],
+    );
 
     // Return the initialized rendering context
     DrawContext {

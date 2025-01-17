@@ -107,6 +107,21 @@ impl Vger {
         queue: Arc<wgpu::Queue>,
         texture_format: wgpu::TextureFormat,
     ) -> Self {
+        Self::new_with_font(
+            device,
+            queue,
+            texture_format,
+            include_bytes!("../assets/fonts/Anodina-Regular.ttf") as &[u8],
+        )
+    }
+
+    /// Create a new renderer given a device and output pixel format.
+    pub fn new_with_font(
+        device: Arc<wgpu::Device>,
+        queue: Arc<wgpu::Queue>,
+        texture_format: wgpu::TextureFormat,
+        font_bytes: &[u8],
+    ) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
             source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(include_str!(
@@ -168,11 +183,7 @@ impl Vger {
                 label: Some("image_bind_group_layout"),
             });
 
-        let glyph_cache = GlyphCache::new(
-            &device,
-            // include_bytes!("fonts/Anodina-Regular.ttf") as &[u8],
-            include_bytes!("fonts/Sniglet/Sniglet-Regular.ttf") as &[u8],
-        );
+        let glyph_cache = GlyphCache::new(&device, font_bytes);
 
         let texture_view = glyph_cache.create_view();
 
@@ -286,10 +297,6 @@ impl Vger {
             image_bind_group_layout,
             default_image_bind_group,
         }
-    }
-
-    pub fn use_font(&mut self, font_bytes: &[u8]) {
-        self.glyph_cache = GlyphCache::new(&self.device, font_bytes);
     }
 
     /// Begin rendering.
