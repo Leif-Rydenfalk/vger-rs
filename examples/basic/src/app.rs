@@ -174,7 +174,7 @@ impl<'window> ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         // If the window is not already initialized, create it and set up the rendering context.
         if self.window.is_none() {
-            let win_attr = Window::default_attributes().with_title("wgpu winit example");
+            let win_attr = Window::default_attributes().with_title("vger basic example");
 
             // Create the window using `winit`
             let window = Arc::new(
