@@ -841,6 +841,14 @@ impl Vger {
         rects
     }
 
+    /// Add an image to the renderer.
+    pub fn store_image(&mut self, path: &str) -> ImageIndex {
+        ImageIndex { index: 0 }
+    }
+
+    /// Renders an image.
+    pub fn image(&mut self, image_index: ImageIndex) {}
+
     fn add_xform(&mut self) -> usize {
         if self.xform_count < MAX_PRIMS {
             let m = *self.tx_stack.last().unwrap();

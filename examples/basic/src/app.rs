@@ -160,6 +160,14 @@ fn render(vger: &mut Vger, window_size: [f32; 2]) {
         Some(window_size[0] - 20.0),
     );
     vger.restore();
+    vger.save();
+
+    vger.translate([10.0, 100.0]);
+
+    let image = vger.store_image("assets/images/rust.png");
+    vger.image(image);
+
+    vger.restore();
 }
 
 /// Represents the application state, holding the window and drawing context.
