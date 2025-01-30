@@ -30,10 +30,10 @@ pub struct ImageIndex {
     index: usize,
 }
 
+// Updated RenderImage struct
 pub struct RenderImage {
-    offset: [f32; 2],
-    aspect_ratio_scale: [f32; 2], // scale to remove stretching from different aspect ratios
-    size: [f32; 2],               // the size of the image in pixels
+    offset_pixels: [f32; 2],
+    size_pixels: [f32; 2],
     index: ImageIndex,
     image_uniform_buffer: wgpu::Buffer,
     aspect_bind_group: wgpu::BindGroup,
@@ -41,17 +41,17 @@ pub struct RenderImage {
 
 impl RenderImage {
     pub fn scale(&mut self, scale: f32) -> &mut Self {
-        self.size = [self.size[0] * scale, self.size[1] * scale];
+        self.size_pixels = [self.size_pixels[0] * scale, self.size_pixels[1] * scale];
         self
     }
 
     pub fn size(&mut self, size: [f32; 2]) -> &mut Self {
-        self.size = size;
+        self.size_pixels = size;
         self
     }
 
     pub fn offset(&mut self, offset: [f32; 2]) -> &mut Self {
-        self.offset = offset;
+        self.offset_pixels = offset;
         self
     }
 }
@@ -59,8 +59,8 @@ impl RenderImage {
 struct ImageRenderer {
     stored_images: Vec<StoredImage>,
     render_images: Vec<RenderImage>,
-    bind_group_layout: wgpu::BindGroupLayout, // For texture and sampler
-    aspect_bind_group_layout: wgpu::BindGroupLayout, // For scaling uniform
+    bind_group_layout: wgpu::BindGroupLayout,
+    aspect_bind_group_layout: wgpu::BindGroupLayout,
     pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
@@ -161,7 +161,6 @@ impl ImageRenderer {
                 }],
             });
 
-        // Update shader source to include aspect ratio scaling
         let shader_source = r#"
             struct VertexInput {
                 @location(0) position: vec2<f32>,
@@ -195,7 +194,6 @@ impl ImageRenderer {
             fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
                 return textureSample(texture, texture_sampler, input.tex_coords);
             }
-
         "#;
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -285,21 +283,8 @@ impl ImageRenderer {
         }
     }
 
-    // In the window_resized method, use the correct offset and scale:
     fn window_resized(&mut self, window_size: winit::dpi::PhysicalSize<u32>) {
         self.window_size = window_size;
-        for image in &mut self.render_images {
-            let stored_image = &self.stored_images[image.index.index];
-            let (scale_x, scale_y) = Self::get_image_scale(
-                window_size.width as f32,
-                window_size.height as f32,
-                stored_image.width as f32,
-                stored_image.height as f32,
-                None,
-                None,
-            );
-            image.aspect_ratio_scale = [scale_x, scale_y]; // Update the scale in RenderImage
-        }
     }
 
     fn get_image_scale(
@@ -338,15 +323,21 @@ impl ImageRenderer {
     }
 
     fn render(&self, encoder: &mut wgpu::CommandEncoder, view: &wgpu::TextureView) {
-        // Update all uniforms on the GPU
         for image in &self.render_images {
-            let scale = [
-                image.aspect_ratio_scale[0] * image.size[0],
-                image.aspect_ratio_scale[1] * image.size[1],
-            ];
+            let window_width = self.window_size.width as f32;
+            let window_height = self.window_size.height as f32;
+
+            // Calculate scale based on pixel size and window dimensions
+            let scale_x = image.size_pixels[0] / window_width;
+            let scale_y = image.size_pixels[1] / window_height;
+
+            // Calculate offset to position the top-left corner correctly
+            let offset_x = (image.offset_pixels[0] / window_width) * 2.0 - 1.0 + scale_x;
+            let offset_y = 1.0 - (image.offset_pixels[1] / window_height) * 2.0 - scale_y;
+
             let aspect_uniform = ImageUniform {
-                offset: image.offset,
-                scale,
+                offset: [offset_x, offset_y],
+                scale: [scale_x, scale_y],
             };
             self.queue.write_buffer(
                 &image.image_uniform_buffer,
@@ -458,6 +449,7 @@ impl ImageRenderer {
     }
 
     fn image(&mut self, index: ImageIndex) -> &mut RenderImage {
+        let stored_image = &self.stored_images[index.index];
         let image_uniform_buffer =
             self.device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -475,26 +467,16 @@ impl ImageRenderer {
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                    buffer: &image_uniform_buffer, // Use the created uniform buffer
+                    buffer: &image_uniform_buffer,
                     offset: 0,
                     size: None,
                 }),
             }],
         });
 
-        let stored_image = &self.stored_images[index.index];
-        let (scale_x, scale_y) = Self::get_image_scale(
-            self.window_size.width as f32,
-            self.window_size.height as f32,
-            stored_image.width as f32,
-            stored_image.height as f32,
-            None,
-            None,
-        );
         self.render_images.push(RenderImage {
-            offset: [0.0, 0.0],
-            aspect_ratio_scale: [scale_x, scale_y], // Initialize scale
-            size: [1.0, 1.0],
+            offset_pixels: [0.0, 0.0],
+            size_pixels: [stored_image.width as f32, stored_image.height as f32],
             index,
             image_uniform_buffer,
             aspect_bind_group,
