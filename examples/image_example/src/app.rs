@@ -26,20 +26,33 @@ struct StoredImage {
 }
 
 #[derive(Copy, Clone)]
-struct ImageIndex {
+pub struct ImageIndex {
     index: usize,
 }
 
-struct RenderImage {
+pub struct RenderImage {
     offset: [f32; 2],
+    aspect_ratio_scale: [f32; 2], // scale to remove stretching from different aspect ratios
+    size: [f32; 2],               // the size of the image in pixels
     index: ImageIndex,
     image_uniform_buffer: wgpu::Buffer,
     aspect_bind_group: wgpu::BindGroup,
 }
 
 impl RenderImage {
-    fn offset(&mut self, offset: [f32; 2]) {
+    pub fn scale(&mut self, scale: f32) -> &mut Self {
+        self.size = [self.size[0] * scale, self.size[1] * scale];
+        self
+    }
+
+    pub fn size(&mut self, size: [f32; 2]) -> &mut Self {
+        self.size = size;
+        self
+    }
+
+    pub fn offset(&mut self, offset: [f32; 2]) -> &mut Self {
         self.offset = offset;
+        self
     }
 }
 
@@ -285,15 +298,7 @@ impl ImageRenderer {
                 None,
                 None,
             );
-            let aspect_uniform = ImageUniform {
-                offset: image.offset, // Use the stored offset from RenderImage
-                scale: [scale_x, scale_y],
-            };
-            self.queue.write_buffer(
-                &image.image_uniform_buffer,
-                0,
-                bytemuck::cast_slice(&[aspect_uniform]),
-            );
+            image.aspect_ratio_scale = [scale_x, scale_y]; // Update the scale in RenderImage
         }
     }
 
@@ -332,7 +337,24 @@ impl ImageRenderer {
         (scale_x, scale_y)
     }
 
-    fn redraw_requested(&self, encoder: &mut wgpu::CommandEncoder, view: &wgpu::TextureView) {
+    fn render(&self, encoder: &mut wgpu::CommandEncoder, view: &wgpu::TextureView) {
+        // Update all uniforms on the GPU
+        for image in &self.render_images {
+            let scale = [
+                image.aspect_ratio_scale[0] * image.size[0],
+                image.aspect_ratio_scale[1] * image.size[1],
+            ];
+            let aspect_uniform = ImageUniform {
+                offset: image.offset,
+                scale,
+            };
+            self.queue.write_buffer(
+                &image.image_uniform_buffer,
+                0,
+                bytemuck::cast_slice(&[aspect_uniform]),
+            );
+        }
+
         // Render all the images in the render_images vector
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render Pass"),
@@ -460,13 +482,23 @@ impl ImageRenderer {
             }],
         });
 
-        let render_image = RenderImage {
+        let stored_image = &self.stored_images[index.index];
+        let (scale_x, scale_y) = Self::get_image_scale(
+            self.window_size.width as f32,
+            self.window_size.height as f32,
+            stored_image.width as f32,
+            stored_image.height as f32,
+            None,
+            None,
+        );
+        self.render_images.push(RenderImage {
             offset: [0.0, 0.0],
+            aspect_ratio_scale: [scale_x, scale_y], // Initialize scale
+            size: [1.0, 1.0],
             index,
             image_uniform_buffer,
             aspect_bind_group,
-        };
-        self.render_images.push(render_image);
+        });
         self.render_images.last_mut().unwrap()
     }
 }
@@ -659,9 +691,12 @@ impl ApplicationHandler for App {
 
                     if let Some(image_renderer) = &mut context.image_renderer {
                         image_renderer.begin_frame();
-                        image_renderer.image(context.images[0]);
-                        image_renderer.image(context.images[1]).offset([0.0, 1.0]);
-                        image_renderer.redraw_requested(&mut encoder, &view);
+                        image_renderer.image(context.images[0]).scale(0.5);
+                        image_renderer
+                            .image(context.images[1])
+                            .scale(0.5)
+                            .offset([0.0, 0.5]);
+                        image_renderer.render(&mut encoder, &view);
                     }
 
                     context.queue.submit(std::iter::once(encoder.finish()));
