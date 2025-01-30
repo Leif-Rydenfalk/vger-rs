@@ -830,8 +830,6 @@ impl ApplicationHandler for App {
             }
             WindowEvent::RedrawRequested => {
                 if let Some(context) = &mut self.context {
-                    let elapsed = self.start_time.elapsed().as_secs_f32();
-
                     let frame = match context.surface.get_current_texture() {
                         Ok(frame) => frame,
                         Err(_) => {
@@ -916,8 +914,8 @@ impl ApplicationHandler for App {
                         }
 
                         let mut y_offset = 0.0;
-                        let mut size = 1.0;
-                        (0..10).for_each(|_| {
+                        let mut size = 2.0;
+                        (0..8).for_each(|_| {
                             (y_offset, size) =
                                 row(context.images[0], image_renderer, y_offset, size);
                         });
