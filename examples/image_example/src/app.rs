@@ -907,9 +907,8 @@ impl ApplicationHandler for App {
                                 .offset([640.0, 320.0 + y_offset]);
                         }
 
-                        let animation = ((elapsed * 0.5).sin() + 1.0) * 100.0;
-                        example(context.images[0], image_renderer, animation);
-                        example(context.images[1], image_renderer, 640.0 + animation);
+                        example(context.images[0], image_renderer, 0.0);
+                        example(context.images[1], image_renderer, 640.0);
                         image_renderer.render(&mut encoder, &view);
                     }
 
