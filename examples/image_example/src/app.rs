@@ -865,6 +865,7 @@ impl ApplicationHandler for App {
                             let padding = 20.0;
                             let padding_size = size + padding;
 
+                            // First row
                             image_renderer
                                 .image(image_index)
                                 .fit(Fit::Contain)
@@ -877,22 +878,30 @@ impl ApplicationHandler for App {
                                 .v_align(AxisAlignEnum::Center)
                                 .frame(frame)
                                 .offset([padding_size, y_offset]);
+
                             image_renderer
                                 .image(image_index)
                                 .v_align(AxisAlignEnum::End)
                                 .fit(Fit::Contain)
                                 .frame(frame)
                                 .offset([padding_size * 2.0, y_offset]);
+
+                            // Custom vertical alignment
                             image_renderer
                                 .image(image_index)
                                 .v_align(0.618033989)
                                 .fit(Fit::Contain)
                                 .frame(frame)
                                 .offset([padding_size * 3.0, y_offset]);
+
+                            // Second row
+                            // No fit which causes the image to be stretched
                             image_renderer
                                 .image(image_index)
                                 .frame(frame)
                                 .offset([0.0, padding_size + y_offset]);
+
+                            // Hidden overflow
                             image_renderer
                                 .image(image_index)
                                 .fit(Fit::Cover)
@@ -900,6 +909,8 @@ impl ApplicationHandler for App {
                                 .v_align(AxisAlignEnum::Start)
                                 .frame(frame)
                                 .offset([padding_size, padding_size + y_offset]);
+
+                            // Visible overflow
                             image_renderer
                                 .image(image_index)
                                 .fit(Fit::Cover)
