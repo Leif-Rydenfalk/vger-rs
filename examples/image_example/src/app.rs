@@ -787,7 +787,7 @@ impl ApplicationHandler for App {
         if self.window.is_none() {
             let window = Arc::new(
                 event_loop
-                    .create_window(Window::default_attributes().with_title("Triangle Example"))
+                    .create_window(Window::default_attributes().with_title("vger image example"))
                     .unwrap(),
             );
             self.window = Some(window.clone());
