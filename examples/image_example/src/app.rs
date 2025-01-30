@@ -41,6 +41,7 @@ pub enum AxisAlign {
 pub enum Fit {
     Fill,
     Contain,
+    Cover,
 }
 
 // Updated RenderImage struct
@@ -53,6 +54,7 @@ pub struct RenderImage {
     index: ImageIndex,
     image_uniform_buffer: wgpu::Buffer,
     aspect_bind_group: wgpu::BindGroup,
+    clip_overflow: bool,
 }
 
 impl RenderImage {
@@ -83,6 +85,16 @@ impl RenderImage {
 
     pub fn v_align(&mut self, align: AxisAlign) -> &mut Self {
         self.vertical_align = align;
+        self
+    }
+
+    pub fn overflow_hidden(&mut self) -> &mut Self {
+        self.clip_overflow = true;
+        self
+    }
+
+    pub fn overflow_visible(&mut self) -> &mut Self {
+        self.clip_overflow = false;
         self
     }
 }
@@ -398,6 +410,39 @@ impl ImageRenderer {
 
         for image in &self.render_images {
             let stored_image = &self.stored_images[image.index.index];
+
+            let mut skip = false;
+            if image.clip_overflow {
+                let window_width = self.window_size.width as f32;
+                let window_height = self.window_size.height as f32;
+
+                // Calculate clamped scissor rect
+                let x_start = image.offset_pixels[0].max(0.0);
+                let y_start = image.offset_pixels[1].max(0.0);
+                let x_end = (image.offset_pixels[0] + image.size_pixels[0]).min(window_width);
+                let y_end = (image.offset_pixels[1] + image.size_pixels[1]).min(window_height);
+
+                let scissor_x = x_start as u32;
+                let scissor_y = y_start as u32;
+                let scissor_width = (x_end - x_start) as u32;
+                let scissor_height = (y_end - y_start) as u32;
+
+                if scissor_width == 0 || scissor_height == 0 {
+                    skip = true;
+                } else {
+                    render_pass.set_scissor_rect(
+                        scissor_x,
+                        scissor_y,
+                        scissor_width,
+                        scissor_height,
+                    );
+                }
+            }
+
+            if skip {
+                continue;
+            }
+
             render_pass.set_bind_group(0, &stored_image.bind_group, &[]);
             render_pass.set_bind_group(1, &image.aspect_bind_group, &[]);
             render_pass.draw_indexed(0..6, 0, 0..1);
@@ -419,6 +464,27 @@ impl ImageRenderer {
                 let scale_x = container_width / image_width;
                 let scale_y = container_height / image_height;
                 let scale = f32::min(scale_x, scale_y);
+                let scaled_width = image_width * scale;
+                let scaled_height = image_height * scale;
+
+                let offset_x = match horizontal_align {
+                    AxisAlign::Start => 0.0,
+                    AxisAlign::Center => (container_width - scaled_width) / 2.0,
+                    AxisAlign::End => container_width - scaled_width,
+                };
+
+                let offset_y = match vertical_align {
+                    AxisAlign::Start => 0.0,
+                    AxisAlign::Center => (container_height - scaled_height) / 2.0,
+                    AxisAlign::End => container_height - scaled_height,
+                };
+
+                (scaled_width, scaled_height, offset_x, offset_y)
+            }
+            Fit::Cover => {
+                let scale_x = container_width / image_width;
+                let scale_y = container_height / image_height;
+                let scale = f32::max(scale_x, scale_y);
                 let scaled_width = image_width * scale;
                 let scaled_height = image_height * scale;
 
@@ -559,6 +625,7 @@ impl ImageRenderer {
             index,
             image_uniform_buffer,
             aspect_bind_group,
+            clip_overflow: true,
         });
         self.render_images.last_mut().unwrap()
     }
@@ -774,7 +841,9 @@ impl ApplicationHandler for App {
                             .offset([0.0, 640.0]);
                         image_renderer
                             .image(context.images[0])
-                            .fit(Fit::Contain)
+                            .fit(Fit::Cover)
+                            .h_align(AxisAlign::Center)
+                            .v_align(AxisAlign::Center)
                             .frame([300.0, 300.0])
                             .offset([320.0, 320.0]);
                         image_renderer.render(&mut encoder, &view);
