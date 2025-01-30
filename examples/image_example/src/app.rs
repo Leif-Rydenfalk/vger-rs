@@ -857,13 +857,12 @@ impl ApplicationHandler for App {
                     if let Some(image_renderer) = &mut context.image_renderer {
                         image_renderer.begin_frame();
 
-                        fn example(
+                        fn row(
                             image_index: ImageIndex,
                             image_renderer: &mut ImageRenderer,
                             y_offset: f32,
-                            elapsed: f32,
-                        ) {
-                            let size = 300.0;
+                            size: f32,
+                        ) -> (f32, f32) {
                             let frame = [size, size];
                             let padding = 20.0;
                             let padding_size = size + padding;
@@ -888,7 +887,7 @@ impl ApplicationHandler for App {
                                 .offset([padding_size * 2.0, y_offset]);
                             image_renderer
                                 .image(image_index)
-                                .v_align(elapsed.sin())
+                                .v_align(0.618033989)
                                 .fit(Fit::Contain)
                                 .frame(frame)
                                 .offset([padding_size * 3.0, y_offset]);
@@ -911,10 +910,18 @@ impl ApplicationHandler for App {
                                 .overflow_visible()
                                 .frame(frame)
                                 .offset([padding_size * 2.0, padding_size + y_offset]);
+
+                            // return the y offset and size for the next row
+                            (padding_size * 2.0 + y_offset, size * 2.0)
                         }
 
-                        example(context.images[0], image_renderer, 0.0, elapsed);
-                        example(context.images[1], image_renderer, 640.0, elapsed);
+                        let mut y_offset = 0.0;
+                        let mut size = 1.0;
+                        (0..10).for_each(|_| {
+                            (y_offset, size) =
+                                row(context.images[0], image_renderer, y_offset, size);
+                        });
+                        row(context.images[0], image_renderer, y_offset, size);
                         image_renderer.render(&mut encoder, &view);
                     }
 
