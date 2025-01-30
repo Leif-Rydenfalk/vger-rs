@@ -88,11 +88,6 @@ impl RenderImage {
         self
     }
 
-    pub fn overflow_hidden(&mut self) -> &mut Self {
-        self.clip_overflow = true;
-        self
-    }
-
     pub fn overflow_visible(&mut self) -> &mut Self {
         self.clip_overflow = false;
         self
@@ -416,6 +411,7 @@ impl ImageRenderer {
             let stored_image = &self.stored_images[image.index.index];
 
             let mut skip = false;
+
             if image.clip_overflow {
                 let window_width = self.window_size.width as f32;
                 let window_height = self.window_size.height as f32;
@@ -441,6 +437,9 @@ impl ImageRenderer {
                         scissor_height,
                     );
                 }
+            } else {
+                // Reset scissor to the entire window when overflow is visible
+                render_pass.set_scissor_rect(0, 0, self.window_size.width, self.window_size.height);
             }
 
             if skip {
@@ -825,31 +824,41 @@ impl ApplicationHandler for App {
                         image_renderer.begin_frame();
                         image_renderer
                             .image(context.images[0])
+                            .fit(Fit::Contain)
+                            .v_align(AxisAlign::Start)
                             .frame([300.0, 300.0])
                             .offset([0.0, 0.0]);
                         image_renderer
                             .image(context.images[0])
                             .fit(Fit::Contain)
-                            .v_align(AxisAlign::Start)
+                            .v_align(AxisAlign::Center)
                             .frame([300.0, 300.0])
-                            .offset([0.0, 320.0]);
+                            .offset([320.0, 0.0]);
                         image_renderer
                             .image(context.images[0])
                             .v_align(AxisAlign::End)
                             .fit(Fit::Contain)
                             .frame([300.0, 300.0])
-                            .offset([640.0, 320.0]);
+                            .offset([640.0, 0.0]);
                         image_renderer
                             .image(context.images[0])
                             .frame([300.0, 300.0])
-                            .offset([0.0, 640.0]);
+                            .offset([0.0, 320.0]);
                         image_renderer
                             .image(context.images[0])
                             .fit(Fit::Cover)
-                            .h_align(AxisAlign::Center)
-                            .v_align(AxisAlign::Center)
+                            .h_align(AxisAlign::End)
+                            .v_align(AxisAlign::End)
                             .frame([300.0, 300.0])
                             .offset([320.0, 320.0]);
+                        image_renderer
+                            .image(context.images[0])
+                            .fit(Fit::Cover)
+                            .h_align(AxisAlign::Start)
+                            .v_align(AxisAlign::Start)
+                            .overflow_visible()
+                            .frame([300.0, 300.0])
+                            .offset([640.0, 320.0]);
                         image_renderer.render(&mut encoder, &view);
                     }
 
