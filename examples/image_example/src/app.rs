@@ -47,11 +47,9 @@ impl AxisAlign for AxisAlignEnum {
     }
 }
 
-pub struct AxisAlignNumber(f32);
-
-impl AxisAlign for AxisAlignNumber {
+impl AxisAlign for f32 {
     fn value(&self) -> f32 {
-        self.0
+        *self
     }
 }
 
@@ -100,13 +98,13 @@ impl RenderImage {
         self
     }
 
-    pub fn h_align(&mut self, align: Box<dyn AxisAlign>) -> &mut Self {
-        self.horizontal_align = align;
+    pub fn h_align<T: AxisAlign + 'static>(&mut self, align: T) -> &mut Self {
+        self.horizontal_align = Box::new(align);
         self
     }
 
-    pub fn v_align(&mut self, align: Box<dyn AxisAlign>) -> &mut Self {
-        self.vertical_align = align;
+    pub fn v_align<T: AxisAlign + 'static>(&mut self, align: T) -> &mut Self {
+        self.vertical_align = Box::new(align);
         self
     }
 
@@ -856,49 +854,69 @@ impl ApplicationHandler for App {
 
                     if let Some(image_renderer) = &mut context.image_renderer {
                         image_renderer.begin_frame();
-                        image_renderer
-                            .image(context.images[0])
-                            .fit(Fit::Contain)
-                            .v_align(Box::new(AxisAlignEnum::Start))
-                            .frame([300.0, 300.0])
-                            .offset([0.0, 0.0]);
-                        image_renderer
-                            .image(context.images[0])
-                            .fit(Fit::Contain)
-                            .v_align(Box::new(AxisAlignEnum::Center))
-                            .frame([300.0, 300.0])
-                            .offset([320.0, 0.0]);
-                        image_renderer
-                            .image(context.images[0])
-                            .v_align(Box::new(AxisAlignEnum::End))
-                            .fit(Fit::Contain)
-                            .frame([300.0, 300.0])
-                            .offset([640.0, 0.0]);
-                        image_renderer
-                            .image(context.images[0])
-                            .v_align(Box::new(AxisAlignNumber(elapsed.sin())))
-                            .fit(Fit::Contain)
-                            .frame([300.0, 300.0])
-                            .offset([960.0, 0.0]);
-                        image_renderer
-                            .image(context.images[0])
-                            .frame([300.0, 300.0])
-                            .offset([0.0, 320.0]);
-                        image_renderer
-                            .image(context.images[0])
-                            .fit(Fit::Cover)
-                            .h_align(Box::new(AxisAlignEnum::End))
-                            .v_align(Box::new(AxisAlignEnum::End))
-                            .frame([300.0, 300.0])
-                            .offset([320.0, 320.0]);
-                        image_renderer
-                            .image(context.images[0])
-                            .fit(Fit::Cover)
-                            .h_align(Box::new(AxisAlignEnum::Start))
-                            .v_align(Box::new(AxisAlignEnum::Start))
-                            .overflow_visible()
-                            .frame([300.0, 300.0])
-                            .offset([640.0, 320.0]);
+
+                        fn example(
+                            image_index: ImageIndex,
+                            image_renderer: &mut ImageRenderer,
+                            y_offset: f32,
+                        ) {
+                            image_renderer
+                                .image(image_index)
+                                .fit(Fit::Contain)
+                                .v_align(AxisAlignEnum::Start)
+                                .frame([300.0, 300.0])
+                                .offset([0.0, y_offset]);
+                            image_renderer
+                                .image(image_index)
+                                .fit(Fit::Contain)
+                                .v_align(AxisAlignEnum::Center)
+                                .frame([300.0, 300.0])
+                                .offset([320.0, y_offset]);
+                            image_renderer
+                                .image(image_index)
+                                .v_align(AxisAlignEnum::End)
+                                .fit(Fit::Contain)
+                                .frame([300.0, 300.0])
+                                .offset([640.0, y_offset]);
+                            image_renderer
+                                .image(image_index)
+                                .v_align((y_offset * 0.1).sin())
+                                .fit(Fit::Contain)
+                                .frame([300.0, 300.0])
+                                .offset([960.0, y_offset]);
+                            image_renderer
+                                .image(image_index)
+                                .frame([300.0, 300.0])
+                                .offset([0.0, 320.0 + y_offset]);
+                            image_renderer
+                                .image(image_index)
+                                .fit(Fit::Cover)
+                                .h_align(AxisAlignEnum::End)
+                                .v_align(AxisAlignEnum::End)
+                                .frame([300.0, 300.0])
+                                .offset([320.0, 320.0 + y_offset]);
+                            image_renderer
+                                .image(image_index)
+                                .fit(Fit::Cover)
+                                .h_align(AxisAlignEnum::Start)
+                                .v_align(AxisAlignEnum::Start)
+                                .overflow_visible()
+                                .frame([300.0, 300.0])
+                                .offset([640.0, 320.0 + y_offset]);
+                        }
+
+                        example(
+                            context.images[0],
+                            image_renderer,
+                            ((elapsed * 0.5).sin() + 1.0) * 100.0,
+                        );
+
+                        example(
+                            context.images[1],
+                            image_renderer,
+                            640.0 + ((elapsed * 0.5).sin() + 1.0) * 100.0,
+                        );
+
                         image_renderer.render(&mut encoder, &view);
                     }
 
