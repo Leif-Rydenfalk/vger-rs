@@ -31,24 +31,25 @@ pub struct ImageIndex {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
-pub enum ImageFit {
-    Fill,
-    Contain,
-    Cover,
-    ScaleDown,
-    None,
+pub enum AxisAlign {
+    Start,
+    Center,
+    End,
 }
 
-impl Default for ImageFit {
-    fn default() -> Self {
-        ImageFit::None
-    }
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum Fit {
+    Fill,
+    Contain,
 }
 
 // Updated RenderImage struct
 pub struct RenderImage {
     offset_pixels: [f32; 2],
     size_pixels: [f32; 2],
+    fit: Option<Fit>,
+    horizontal_align: AxisAlign,
+    vertical_align: AxisAlign,
     index: ImageIndex,
     image_uniform_buffer: wgpu::Buffer,
     aspect_bind_group: wgpu::BindGroup,
@@ -60,13 +61,28 @@ impl RenderImage {
         self
     }
 
-    pub fn size(&mut self, size: [f32; 2]) -> &mut Self {
+    pub fn frame(&mut self, size: [f32; 2]) -> &mut Self {
         self.size_pixels = size;
         self
     }
 
     pub fn offset(&mut self, offset: [f32; 2]) -> &mut Self {
         self.offset_pixels = offset;
+        self
+    }
+
+    pub fn fit(&mut self, fit: Fit) -> &mut Self {
+        self.fit = Some(fit);
+        self
+    }
+
+    pub fn h_align(&mut self, align: AxisAlign) -> &mut Self {
+        self.horizontal_align = align;
+        self
+    }
+
+    pub fn v_align(&mut self, align: AxisAlign) -> &mut Self {
+        self.vertical_align = align;
         self
     }
 }
@@ -305,20 +321,53 @@ impl ImageRenderer {
 
     fn render(&self, encoder: &mut wgpu::CommandEncoder, view: &wgpu::TextureView) {
         for image in &self.render_images {
+            let stored_image = &self.stored_images[image.index.index];
             let window_width = self.window_size.width as f32;
             let window_height = self.window_size.height as f32;
 
-            // Calculate scale based on pixel size and window dimensions
-            let scale_x = image.size_pixels[0] / window_width;
-            let scale_y = image.size_pixels[1] / window_height;
+            let container_width = image.size_pixels[0];
+            let container_height = image.size_pixels[1];
+            let image_width = stored_image.width as f32;
+            let image_height = stored_image.height as f32;
+            let fit = image.fit.unwrap_or(Fit::Fill);
 
-            // Calculate offset to position the top-left corner correctly
-            let offset_x = (image.offset_pixels[0] / window_width) * 2.0 - 1.0 + scale_x;
-            let offset_y = 1.0 - (image.offset_pixels[1] / window_height) * 2.0 - scale_y;
+            let (image_scale, image_offset) = Self::calculate_fit(
+                fit,
+                image_width,
+                image_height,
+                container_width,
+                container_height,
+                image.horizontal_align,
+                image.vertical_align,
+            );
+
+            // Calculate container's scale in NDC
+            let container_scale_x = container_width / window_width;
+            let container_scale_y = container_height / window_height;
+
+            // Calculate container's center in NDC
+            let container_center_x =
+                (image.offset_pixels[0] + container_width / 2.0) / window_width * 2.0 - 1.0;
+            let container_center_y =
+                1.0 - (image.offset_pixels[1] + container_height / 2.0) / window_height * 2.0;
+
+            // Calculate the quad's scale in NDC
+            let quad_scale_x = container_scale_x * image_scale[0];
+            let quad_scale_y = container_scale_y * image_scale[1];
+
+            // Calculate the image's offset within the container in NDC
+            let image_offset_x_ndc = image_offset[0] * container_scale_x * 2.0;
+            let image_offset_y_ndc = image_offset[1] * container_scale_y * 2.0;
+
+            // Calculate the quad's offset in NDC
+            let quad_offset_x =
+                (container_center_x - container_scale_x) + image_offset_x_ndc + quad_scale_x;
+            let quad_offset_y =
+                (container_center_y + container_scale_y) - image_offset_y_ndc - quad_scale_y;
 
             let aspect_uniform = ImageUniform {
-                offset: [offset_x, offset_y],
-                scale: [scale_x, scale_y],
+                offset: [quad_offset_x, quad_offset_y],
+                scale: [quad_scale_x, quad_scale_y],
             };
             self.queue.write_buffer(
                 &image.image_uniform_buffer,
@@ -353,6 +402,52 @@ impl ImageRenderer {
             render_pass.set_bind_group(1, &image.aspect_bind_group, &[]);
             render_pass.draw_indexed(0..6, 0, 0..1);
         }
+    }
+
+    fn calculate_fit(
+        fit: Fit,
+        image_width: f32,
+        image_height: f32,
+        container_width: f32,
+        container_height: f32,
+        horizontal_align: AxisAlign,
+        vertical_align: AxisAlign,
+    ) -> ([f32; 2], [f32; 2]) {
+        let (scaled_width, scaled_height, offset_x, offset_y) = match fit {
+            Fit::Fill => (container_width, container_height, 0.0, 0.0),
+            Fit::Contain => {
+                let scale_x = container_width / image_width;
+                let scale_y = container_height / image_height;
+                let scale = f32::min(scale_x, scale_y);
+                let scaled_width = image_width * scale;
+                let scaled_height = image_height * scale;
+
+                let offset_x = match horizontal_align {
+                    AxisAlign::Start => 0.0,
+                    AxisAlign::Center => (container_width - scaled_width) / 2.0,
+                    AxisAlign::End => container_width - scaled_width,
+                };
+
+                let offset_y = match vertical_align {
+                    AxisAlign::Start => 0.0,
+                    AxisAlign::Center => (container_height - scaled_height) / 2.0,
+                    AxisAlign::End => container_height - scaled_height,
+                };
+
+                (scaled_width, scaled_height, offset_x, offset_y)
+            }
+        };
+
+        let image_scale_x = scaled_width / container_width;
+        let image_scale_y = scaled_height / container_height;
+
+        let offset_x_normalized = offset_x / container_width;
+        let offset_y_normalized = offset_y / container_height;
+
+        (
+            [image_scale_x, image_scale_y],
+            [offset_x_normalized, offset_y_normalized],
+        )
     }
 
     fn store_image(&mut self, path: &str) -> ImageIndex {
@@ -458,6 +553,9 @@ impl ImageRenderer {
         self.render_images.push(RenderImage {
             offset_pixels: [0.0, 0.0],
             size_pixels: [stored_image.width as f32, stored_image.height as f32],
+            fit: Some(Fit::Fill),
+            horizontal_align: AxisAlign::Center,
+            vertical_align: AxisAlign::Center,
             index,
             image_uniform_buffer,
             aspect_bind_group,
@@ -641,9 +739,6 @@ impl ApplicationHandler for App {
                         }
                     };
 
-                    let (width, height) =
-                        (context.config.width as f32, context.config.height as f32);
-
                     let view = frame
                         .texture
                         .create_view(&wgpu::TextureViewDescriptor::default());
@@ -659,15 +754,16 @@ impl ApplicationHandler for App {
                         image_renderer.begin_frame();
                         image_renderer
                             .image(context.images[0])
-                            .size([300.0, 300.0])
+                            .frame([300.0, 300.0])
                             .offset([0.0, 0.0]);
                         image_renderer
-                            .image(context.images[1])
-                            .size([300.0, 300.0])
+                            .image(context.images[0])
+                            .fit(Fit::Contain)
+                            .frame([300.0, 300.0])
                             .offset([0.0, 320.0]);
                         image_renderer
                             .image(context.images[0])
-                            .size([300.0, 300.0])
+                            .frame([300.0, 300.0])
                             .offset([0.0, 640.0]);
                         image_renderer.render(&mut encoder, &view);
                     }
