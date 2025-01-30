@@ -235,8 +235,12 @@ impl ImageRenderer {
 
             @fragment
             fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
-                let debug_color = vec4<f32>(0.3, 0.0, 0.0, 1.0);
-                return textureSample(texture, texture_sampler, input.tex_coords) + debug_color;
+                let sample = textureSample(texture, texture_sampler, input.tex_coords);
+                if (sample.a == 0.0) {
+                    return vec4<f32>(0.3, 0.0, 0.0, 1.0);
+                } else {
+                    return sample; 
+                }
             }
         "#;
 
