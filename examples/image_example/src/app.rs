@@ -30,6 +30,21 @@ pub struct ImageIndex {
     index: usize,
 }
 
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum ImageFit {
+    Fill,
+    Contain,
+    Cover,
+    ScaleDown,
+    None,
+}
+
+impl Default for ImageFit {
+    fn default() -> Self {
+        ImageFit::None
+    }
+}
+
 // Updated RenderImage struct
 pub struct RenderImage {
     offset_pixels: [f32; 2],
@@ -192,7 +207,8 @@ impl ImageRenderer {
 
             @fragment
             fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
-                return textureSample(texture, texture_sampler, input.tex_coords);
+                let debug_color = vec4<f32>(0.3, 0.0, 0.0, 1.0);
+                return textureSample(texture, texture_sampler, input.tex_coords) + debug_color;
             }
         "#;
 
@@ -285,41 +301,6 @@ impl ImageRenderer {
 
     fn window_resized(&mut self, window_size: winit::dpi::PhysicalSize<u32>) {
         self.window_size = window_size;
-    }
-
-    fn get_image_scale(
-        window_width: f32,
-        window_height: f32,
-        image_width: f32,
-        image_height: f32,
-        max_rendered_width: Option<f32>,  // In pixels
-        max_rendered_height: Option<f32>, // In pixels
-    ) -> (f32, f32) {
-        let window_aspect_ratio = window_width / window_height;
-        let image_aspect_ratio = image_width / image_height;
-
-        // let scale_x = window_aspect_ratio / image_aspect_ratio;
-        // let scale_y = image_aspect_ratio / window_aspect_ratio;
-        // (scale_x, scale_y)
-
-        let mut scale_x = 1.0;
-        let mut scale_y = 1.0;
-
-        if window_aspect_ratio > image_aspect_ratio {
-            scale_x = image_aspect_ratio / window_aspect_ratio;
-        } else {
-            scale_y = window_aspect_ratio / image_aspect_ratio;
-        }
-
-        if let Some(max_width) = max_rendered_width {
-            scale_x = scale_x.min(max_width / image_width);
-        }
-
-        if let Some(max_height) = max_rendered_height {
-            scale_y = scale_y.min(max_height / image_height);
-        }
-
-        (scale_x, scale_y)
     }
 
     fn render(&self, encoder: &mut wgpu::CommandEncoder, view: &wgpu::TextureView) {
@@ -678,12 +659,16 @@ impl ApplicationHandler for App {
                         image_renderer.begin_frame();
                         image_renderer
                             .image(context.images[0])
-                            .size([width / 2.0, height / 2.0])
+                            .size([300.0, 300.0])
                             .offset([0.0, 0.0]);
                         image_renderer
                             .image(context.images[1])
-                            .size([width / 2.0, height / 2.0])
-                            .offset([0.0, height / 2.0]);
+                            .size([300.0, 300.0])
+                            .offset([0.0, 320.0]);
+                        image_renderer
+                            .image(context.images[0])
+                            .size([300.0, 300.0])
+                            .offset([0.0, 640.0]);
                         image_renderer.render(&mut encoder, &view);
                     }
 
