@@ -863,49 +863,54 @@ impl ApplicationHandler for App {
                             y_offset: f32,
                             elapsed: f32,
                         ) {
+                            let size = 300.0;
+                            let frame = [size, size];
+                            let padding = 20.0;
+                            let padding_size = size + padding;
+
                             image_renderer
                                 .image(image_index)
                                 .fit(Fit::Contain)
                                 .v_align(AxisAlignEnum::Start)
-                                .frame([300.0, 300.0])
+                                .frame(frame)
                                 .offset([0.0, y_offset]);
                             image_renderer
                                 .image(image_index)
                                 .fit(Fit::Contain)
                                 .v_align(AxisAlignEnum::Center)
-                                .frame([300.0, 300.0])
-                                .offset([320.0, y_offset]);
+                                .frame(frame)
+                                .offset([padding_size, y_offset]);
                             image_renderer
                                 .image(image_index)
                                 .v_align(AxisAlignEnum::End)
                                 .fit(Fit::Contain)
-                                .frame([300.0, 300.0])
-                                .offset([640.0, y_offset]);
+                                .frame(frame)
+                                .offset([padding_size * 2.0, y_offset]);
                             image_renderer
                                 .image(image_index)
                                 .v_align(elapsed.sin())
                                 .fit(Fit::Contain)
-                                .frame([300.0, 300.0])
-                                .offset([960.0, y_offset]);
+                                .frame(frame)
+                                .offset([padding_size * 3.0, y_offset]);
                             image_renderer
                                 .image(image_index)
-                                .frame([300.0, 300.0])
-                                .offset([0.0, 320.0 + y_offset]);
+                                .frame(frame)
+                                .offset([0.0, padding_size + y_offset]);
                             image_renderer
                                 .image(image_index)
                                 .fit(Fit::Cover)
                                 .h_align(AxisAlignEnum::Start)
                                 .v_align(AxisAlignEnum::Start)
-                                .frame([300.0, 300.0])
-                                .offset([320.0, 320.0 + y_offset]);
+                                .frame(frame)
+                                .offset([padding_size, padding_size + y_offset]);
                             image_renderer
                                 .image(image_index)
                                 .fit(Fit::Cover)
                                 .h_align(AxisAlignEnum::Start)
                                 .v_align(AxisAlignEnum::Start)
                                 .overflow_visible()
-                                .frame([300.0, 300.0])
-                                .offset([640.0, 320.0 + y_offset]);
+                                .frame(frame)
+                                .offset([padding_size * 2.0, padding_size + y_offset]);
                         }
 
                         example(context.images[0], image_renderer, 0.0, elapsed);
