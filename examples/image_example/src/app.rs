@@ -353,7 +353,7 @@ impl ImageRenderer {
     }
 
     fn render(&self, encoder: &mut wgpu::CommandEncoder, view: &wgpu::TextureView) {
-        for image in &self.render_images {
+        self.render_images.iter().for_each(|image| {
             let stored_image = &self.stored_images[image.index.index];
             let window_width = self.window_size.width as f32;
             let window_height = self.window_size.height as f32;
@@ -407,7 +407,7 @@ impl ImageRenderer {
                 0,
                 bytemuck::cast_slice(&[aspect_uniform]),
             );
-        }
+        });
 
         // Render all the images in the render_images vector
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -765,7 +765,6 @@ async fn setup(window: Arc<Window>) -> DrawContext {
 pub struct App {
     window: Option<Arc<Window>>,
     context: Option<DrawContext>,
-    start_time: std::time::Instant,
     previous_render_time: std::time::Instant,
     target_render_duration: std::time::Duration,
 }
@@ -775,7 +774,6 @@ impl Default for App {
         App {
             window: None,
             context: None,
-            start_time: std::time::Instant::now(),
             previous_render_time: std::time::Instant::now(),
             target_render_duration: std::time::Duration::from_secs_f32(1.0 / 30.0),
         }
