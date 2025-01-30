@@ -678,6 +678,9 @@ impl ApplicationHandler for App {
                         }
                     };
 
+                    let (width, height) =
+                        (context.config.width as f32, context.config.height as f32);
+
                     let view = frame
                         .texture
                         .create_view(&wgpu::TextureViewDescriptor::default());
@@ -691,11 +694,14 @@ impl ApplicationHandler for App {
 
                     if let Some(image_renderer) = &mut context.image_renderer {
                         image_renderer.begin_frame();
-                        image_renderer.image(context.images[0]).scale(0.5);
+                        image_renderer
+                            .image(context.images[0])
+                            .size([width / 2.0, height / 2.0])
+                            .offset([0.0, 0.0]);
                         image_renderer
                             .image(context.images[1])
-                            .scale(0.5)
-                            .offset([0.0, 0.5]);
+                            .size([width / 2.0, height / 2.0])
+                            .offset([0.0, height / 2.0]);
                         image_renderer.render(&mut encoder, &view);
                     }
 
