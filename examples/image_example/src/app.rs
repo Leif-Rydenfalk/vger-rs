@@ -30,11 +30,33 @@ pub struct ImageIndex {
     index: usize,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq)]
-pub enum AxisAlign {
+#[derive(Copy, Clone, PartialEq)]
+pub enum AxisAlignEnum {
     Start,
     Center,
     End,
+}
+
+impl AxisAlign for AxisAlignEnum {
+    fn value(&self) -> f32 {
+        match self {
+            AxisAlignEnum::Start => 1.0,
+            AxisAlignEnum::Center => 0.0,
+            AxisAlignEnum::End => -1.0,
+        }
+    }
+}
+
+pub struct AxisAlignNumber(f32);
+
+impl AxisAlign for AxisAlignNumber {
+    fn value(&self) -> f32 {
+        self.0
+    }
+}
+
+pub trait AxisAlign {
+    fn value(&self) -> f32;
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -49,8 +71,8 @@ pub struct RenderImage {
     offset_pixels: [f32; 2],
     size_pixels: [f32; 2],
     fit: Option<Fit>,
-    horizontal_align: AxisAlign,
-    vertical_align: AxisAlign,
+    horizontal_align: Box<dyn AxisAlign>,
+    vertical_align: Box<dyn AxisAlign>,
     index: ImageIndex,
     image_uniform_buffer: wgpu::Buffer,
     aspect_bind_group: wgpu::BindGroup,
@@ -78,12 +100,12 @@ impl RenderImage {
         self
     }
 
-    pub fn h_align(&mut self, align: AxisAlign) -> &mut Self {
+    pub fn h_align(&mut self, align: Box<dyn AxisAlign>) -> &mut Self {
         self.horizontal_align = align;
         self
     }
 
-    pub fn v_align(&mut self, align: AxisAlign) -> &mut Self {
+    pub fn v_align(&mut self, align: Box<dyn AxisAlign>) -> &mut Self {
         self.vertical_align = align;
         self
     }
@@ -348,8 +370,8 @@ impl ImageRenderer {
                 image_height,
                 container_width,
                 container_height,
-                image.horizontal_align,
-                image.vertical_align,
+                &*image.horizontal_align,
+                &*image.vertical_align,
             );
 
             // Calculate container's scale in NDC
@@ -458,8 +480,8 @@ impl ImageRenderer {
         image_height: f32,
         container_width: f32,
         container_height: f32,
-        horizontal_align: AxisAlign,
-        vertical_align: AxisAlign,
+        horizontal_align: &dyn AxisAlign,
+        vertical_align: &dyn AxisAlign,
     ) -> ([f32; 2], [f32; 2]) {
         let (scaled_width, scaled_height, offset_x, offset_y) = match fit {
             Fit::Fill => (container_width, container_height, 0.0, 0.0),
@@ -470,17 +492,11 @@ impl ImageRenderer {
                 let scaled_width = image_width * scale;
                 let scaled_height = image_height * scale;
 
-                let offset_x = match horizontal_align {
-                    AxisAlign::Start => 0.0,
-                    AxisAlign::Center => (container_width - scaled_width) / 2.0,
-                    AxisAlign::End => container_width - scaled_width,
-                };
-
-                let offset_y = match vertical_align {
-                    AxisAlign::Start => 0.0,
-                    AxisAlign::Center => (container_height - scaled_height) / 2.0,
-                    AxisAlign::End => container_height - scaled_height,
-                };
+                // Use alignment values to compute offsets
+                let offset_x =
+                    (container_width - scaled_width) * (1.0 - horizontal_align.value()) / 2.0;
+                let offset_y =
+                    (container_height - scaled_height) * (1.0 - vertical_align.value()) / 2.0;
 
                 (scaled_width, scaled_height, offset_x, offset_y)
             }
@@ -491,17 +507,11 @@ impl ImageRenderer {
                 let scaled_width = image_width * scale;
                 let scaled_height = image_height * scale;
 
-                let offset_x = match horizontal_align {
-                    AxisAlign::Start => 0.0,
-                    AxisAlign::Center => (container_width - scaled_width) / 2.0,
-                    AxisAlign::End => container_width - scaled_width,
-                };
-
-                let offset_y = match vertical_align {
-                    AxisAlign::Start => 0.0,
-                    AxisAlign::Center => (container_height - scaled_height) / 2.0,
-                    AxisAlign::End => container_height - scaled_height,
-                };
+                // Use alignment values to compute offsets
+                let offset_x =
+                    (container_width - scaled_width) * (1.0 - horizontal_align.value()) / 2.0;
+                let offset_y =
+                    (container_height - scaled_height) * (1.0 - vertical_align.value()) / 2.0;
 
                 (scaled_width, scaled_height, offset_x, offset_y)
             }
@@ -623,8 +633,8 @@ impl ImageRenderer {
             offset_pixels: [0.0, 0.0],
             size_pixels: [stored_image.width as f32, stored_image.height as f32],
             fit: Some(Fit::Fill),
-            horizontal_align: AxisAlign::Center,
-            vertical_align: AxisAlign::Center,
+            horizontal_align: Box::new(AxisAlignEnum::Center),
+            vertical_align: Box::new(AxisAlignEnum::Center),
             index,
             image_uniform_buffer,
             aspect_bind_group,
@@ -752,10 +762,24 @@ async fn setup(window: Arc<Window>) -> DrawContext {
     }
 }
 
-#[derive(Default)]
 pub struct App {
     window: Option<Arc<Window>>,
     context: Option<DrawContext>,
+    start_time: std::time::Instant,
+    previous_render_time: std::time::Instant,
+    target_render_duration: std::time::Duration,
+}
+
+impl Default for App {
+    fn default() -> Self {
+        App {
+            window: None,
+            context: None,
+            start_time: std::time::Instant::now(),
+            previous_render_time: std::time::Instant::now(),
+            target_render_duration: std::time::Duration::from_secs_f32(1.0 / 30.0),
+        }
+    }
 }
 
 impl ApplicationHandler for App {
@@ -770,6 +794,14 @@ impl ApplicationHandler for App {
             self.context = Some(futures::executor::block_on(setup(window.clone())));
             // Request the first redraw
             window.request_redraw();
+        }
+    }
+
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        if let Some(window) = &self.window {
+            if self.previous_render_time.elapsed() > self.target_render_duration {
+                window.request_redraw();
+            }
         }
     }
 
@@ -798,6 +830,8 @@ impl ApplicationHandler for App {
             }
             WindowEvent::RedrawRequested => {
                 if let Some(context) = &mut self.context {
+                    let elapsed = self.start_time.elapsed().as_secs_f32();
+
                     let frame = match context.surface.get_current_texture() {
                         Ok(frame) => frame,
                         Err(_) => {
@@ -825,21 +859,27 @@ impl ApplicationHandler for App {
                         image_renderer
                             .image(context.images[0])
                             .fit(Fit::Contain)
-                            .v_align(AxisAlign::Start)
+                            .v_align(Box::new(AxisAlignEnum::Start))
                             .frame([300.0, 300.0])
                             .offset([0.0, 0.0]);
                         image_renderer
                             .image(context.images[0])
                             .fit(Fit::Contain)
-                            .v_align(AxisAlign::Center)
+                            .v_align(Box::new(AxisAlignEnum::Center))
                             .frame([300.0, 300.0])
                             .offset([320.0, 0.0]);
                         image_renderer
                             .image(context.images[0])
-                            .v_align(AxisAlign::End)
+                            .v_align(Box::new(AxisAlignEnum::End))
                             .fit(Fit::Contain)
                             .frame([300.0, 300.0])
                             .offset([640.0, 0.0]);
+                        image_renderer
+                            .image(context.images[0])
+                            .v_align(Box::new(AxisAlignNumber(elapsed.sin())))
+                            .fit(Fit::Contain)
+                            .frame([300.0, 300.0])
+                            .offset([960.0, 0.0]);
                         image_renderer
                             .image(context.images[0])
                             .frame([300.0, 300.0])
@@ -847,15 +887,15 @@ impl ApplicationHandler for App {
                         image_renderer
                             .image(context.images[0])
                             .fit(Fit::Cover)
-                            .h_align(AxisAlign::End)
-                            .v_align(AxisAlign::End)
+                            .h_align(Box::new(AxisAlignEnum::End))
+                            .v_align(Box::new(AxisAlignEnum::End))
                             .frame([300.0, 300.0])
                             .offset([320.0, 320.0]);
                         image_renderer
                             .image(context.images[0])
                             .fit(Fit::Cover)
-                            .h_align(AxisAlign::Start)
-                            .v_align(AxisAlign::Start)
+                            .h_align(Box::new(AxisAlignEnum::Start))
+                            .v_align(Box::new(AxisAlignEnum::Start))
                             .overflow_visible()
                             .frame([300.0, 300.0])
                             .offset([640.0, 320.0]);
@@ -864,6 +904,8 @@ impl ApplicationHandler for App {
 
                     context.queue.submit(std::iter::once(encoder.finish()));
                     frame.present();
+
+                    self.previous_render_time = std::time::Instant::now();
                 }
             }
             _ => (),
