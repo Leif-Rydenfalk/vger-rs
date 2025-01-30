@@ -759,12 +759,24 @@ impl ApplicationHandler for App {
                         image_renderer
                             .image(context.images[0])
                             .fit(Fit::Contain)
+                            .v_align(AxisAlign::Start)
                             .frame([300.0, 300.0])
                             .offset([0.0, 320.0]);
                         image_renderer
                             .image(context.images[0])
+                            .v_align(AxisAlign::End)
+                            .fit(Fit::Contain)
+                            .frame([300.0, 300.0])
+                            .offset([640.0, 320.0]);
+                        image_renderer
+                            .image(context.images[0])
                             .frame([300.0, 300.0])
                             .offset([0.0, 640.0]);
+                        image_renderer
+                            .image(context.images[0])
+                            .fit(Fit::Contain)
+                            .frame([300.0, 300.0])
+                            .offset([320.0, 320.0]);
                         image_renderer.render(&mut encoder, &view);
                     }
 
