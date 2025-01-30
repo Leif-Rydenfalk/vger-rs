@@ -101,19 +101,19 @@ impl ImageRenderer {
         // Vertex data for quad
         let vertices = [
             Vertex {
-                position: [-0.5, -0.5],
+                position: [-1.0, -1.0],
                 tex_coords: [0.0, 1.0],
             }, // Bottom-left
             Vertex {
-                position: [0.5, -0.5],
+                position: [1.0, -1.0],
                 tex_coords: [1.0, 1.0],
             }, // Bottom-right
             Vertex {
-                position: [0.5, 0.5],
+                position: [1.0, 1.0],
                 tex_coords: [1.0, 0.0],
             }, // Top-right
             Vertex {
-                position: [-0.5, 0.5],
+                position: [-1.0, 1.0],
                 tex_coords: [0.0, 0.0],
             }, // Top-left
         ];
@@ -307,6 +307,10 @@ impl ImageRenderer {
     ) -> (f32, f32) {
         let window_aspect_ratio = window_width / window_height;
         let image_aspect_ratio = image_width / image_height;
+
+        // let scale_x = window_aspect_ratio / image_aspect_ratio;
+        // let scale_y = image_aspect_ratio / window_aspect_ratio;
+        // (scale_x, scale_y)
 
         let mut scale_x = 1.0;
         let mut scale_y = 1.0;
