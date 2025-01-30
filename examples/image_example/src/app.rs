@@ -250,12 +250,14 @@ impl ImageRenderer {
 
             @fragment
             fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
-                let sample = textureSample(texture, texture_sampler, input.tex_coords);
-                if (sample.a == 0.0) {
-                    return vec4<f32>(0.3, 0.0, 0.0, 1.0);
-                } else {
-                    return sample; 
-                }
+                // let sample = textureSample(texture, texture_sampler, input.tex_coords);
+                // if (sample.a == 0.0) {
+                //     return vec4<f32>(0.3, 0.0, 0.0, 1.0);
+                // } else {
+                //     return sample; 
+                // }
+
+                return textureSample(texture, texture_sampler, input.tex_coords);
             }
         "#;
 
@@ -891,8 +893,8 @@ impl ApplicationHandler for App {
                             image_renderer
                                 .image(image_index)
                                 .fit(Fit::Cover)
-                                .h_align(AxisAlignEnum::End)
-                                .v_align(AxisAlignEnum::End)
+                                .h_align(AxisAlignEnum::Start)
+                                .v_align(AxisAlignEnum::Start)
                                 .frame([300.0, 300.0])
                                 .offset([320.0, 320.0 + y_offset]);
                             image_renderer
