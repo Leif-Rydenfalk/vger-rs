@@ -861,6 +861,7 @@ impl ApplicationHandler for App {
                             image_index: ImageIndex,
                             image_renderer: &mut ImageRenderer,
                             y_offset: f32,
+                            elapsed: f32,
                         ) {
                             image_renderer
                                 .image(image_index)
@@ -882,7 +883,7 @@ impl ApplicationHandler for App {
                                 .offset([640.0, y_offset]);
                             image_renderer
                                 .image(image_index)
-                                .v_align((y_offset * 0.1).sin())
+                                .v_align(elapsed.sin())
                                 .fit(Fit::Contain)
                                 .frame([300.0, 300.0])
                                 .offset([960.0, y_offset]);
@@ -907,8 +908,8 @@ impl ApplicationHandler for App {
                                 .offset([640.0, 320.0 + y_offset]);
                         }
 
-                        example(context.images[0], image_renderer, 0.0);
-                        example(context.images[1], image_renderer, 640.0);
+                        example(context.images[0], image_renderer, 0.0, elapsed);
+                        example(context.images[1], image_renderer, 640.0, elapsed);
                         image_renderer.render(&mut encoder, &view);
                     }
 
