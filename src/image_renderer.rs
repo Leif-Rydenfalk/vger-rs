@@ -358,15 +358,25 @@ impl ImageRenderer {
     }
 
     pub fn encode(&self, rpass: &mut wgpu::RenderPass) {
+        // Set pipeline and buffers
+        rpass.set_pipeline(&self.pipeline);
+        rpass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        rpass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+
+        let window_size = ScreenSize::new(
+            self.window_size.width * self.device_px_ratio,
+            self.window_size.height * self.device_px_ratio,
+        );
+
         // Update uniforms (if needed, ensure these are done before the render pass)
         self.render_images.iter().for_each(|image| {
             let stored_image = &self.stored_images[image.index.index];
             // Calculate aspect_uniform and write to buffer
-            let window_width = self.window_size.width;
-            let window_height = self.window_size.height;
+            let container_width = image.size_pixels.width * self.device_px_ratio;
+            let container_height = image.size_pixels.height * self.device_px_ratio;
+            let offset_x = image.offset_pixels.x * self.device_px_ratio;
+            let offset_y = image.offset_pixels.y * self.device_px_ratio;
 
-            let container_width = image.size_pixels.width;
-            let container_height = image.size_pixels.height;
             let image_width = stored_image.width as f32;
             let image_height = stored_image.height as f32;
             let fit = image.fit.unwrap_or(Fit::Fill);
@@ -381,15 +391,13 @@ impl ImageRenderer {
                 &*image.vertical_align,
             );
 
-            // Calculate container's scale in NDC
-            let container_scale_x = container_width / window_width;
-            let container_scale_y = container_height / window_height;
+            let container_scale_x = container_width / window_size.width;
+            let container_scale_y = container_height / window_size.height;
 
-            // Calculate container's center in NDC
             let container_center_x =
-                (image.offset_pixels.x + container_width / 2.0) / window_width * 2.0 - 1.0;
+                (offset_x + container_width / 2.0) / window_size.width * 2.0 - 1.0;
             let container_center_y =
-                1.0 - (image.offset_pixels.y + container_height / 2.0) / window_height * 2.0;
+                1.0 - (offset_y + container_height / 2.0) / window_size.height * 2.0;
 
             // Calculate the quad's scale in NDC
             let quad_scale_x = container_scale_x * image_scale[0];
@@ -409,31 +417,22 @@ impl ImageRenderer {
                 offset: [quad_offset_x, quad_offset_y],
                 scale: [quad_scale_x, quad_scale_y],
             };
+
             self.queue.write_buffer(
                 &image.image_uniform_buffer,
                 0,
                 bytemuck::cast_slice(&[aspect_uniform]),
             );
-        });
 
-        // Set pipeline and buffers
-        rpass.set_pipeline(&self.pipeline);
-        rpass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        rpass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-
-        for image in &self.render_images {
             let stored_image = &self.stored_images[image.index.index];
             let mut skip = false;
 
             if image.clip_overflow {
-                let window_width = self.window_size.width;
-                let window_height = self.window_size.height;
-
                 // Calculate clamped scissor rect
-                let x_start = image.offset_pixels.x.max(0.0);
-                let y_start = image.offset_pixels.y.max(0.0);
-                let x_end = (image.offset_pixels.x + image.size_pixels.width).min(window_width);
-                let y_end = (image.offset_pixels.y + image.size_pixels.height).min(window_height);
+                let x_start = offset_x.max(0.0);
+                let y_start = offset_y.max(0.0);
+                let x_end = (offset_x + container_width).min(window_size.width);
+                let y_end = (offset_y + container_height).min(window_size.height);
 
                 let scissor_x = x_start as u32;
                 let scissor_y = y_start as u32;
@@ -460,7 +459,7 @@ impl ImageRenderer {
                 rpass.set_bind_group(1, &image.aspect_bind_group, &[]);
                 rpass.draw_indexed(0..6, 0, 0..1);
             }
-        }
+        });
     }
 
     fn calculate_fit(
@@ -622,7 +621,10 @@ impl ImageRenderer {
 
         self.render_images.push(RenderImage {
             offset_pixels: LocalVector::zero(),
-            size_pixels: LocalSize::new(stored_image.width as f32, stored_image.height as f32),
+            size_pixels: LocalSize::new(
+                (stored_image.width as f32) / self.device_px_ratio,
+                (stored_image.height as f32) / self.device_px_ratio,
+            ),
             fit: Some(Fit::Fill),
             horizontal_align: Box::new(AxisAlignEnum::Center),
             vertical_align: Box::new(AxisAlignEnum::Center),
