@@ -103,64 +103,101 @@ async fn setup(window: Arc<Window>) -> DrawContext {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 enum Tab {
     Home,
     Images,
 }
 
+impl Default for Tab {
+    fn default() -> Self {
+        Tab::Home
+    }
+}
+
 /// Selects the tab based on the mouse position
 /// If the mouse is hovering over a rectangle, it will select the images tab
-fn tab_selector(vger: &mut Vger, mouse_pos: Option<LocalPoint>) -> Tab {
+fn tab_selector(
+    vger: &mut Vger,
+    window_size: [f32; 2],
+    mouse_pos: Option<LocalPoint>,
+    tab: Tab,
+) -> Tab {
     let font_size: u32 = 20;
 
-    let (image_rect, image_rect_text_offset) = {
-        let origin: LocalPoint = LocalPoint::new(10.0, 10.0);
-        let size: LocalSize = LocalSize::new(200.0, 50.0);
+    let (rect, text_offset) = {
+        let padding = 10.0;
+        let width = 200.0;
+        let height = 50.0;
+        let (origin, size) = match tab {
+            Tab::Home => (
+                LocalPoint::new(padding, padding),
+                LocalSize::new(width, height),
+            ),
+            Tab::Images => (
+                LocalPoint::new(window_size[0] - width - padding, padding),
+                LocalSize::new(width, height),
+            ),
+        };
+
+        let half_text_width = match tab {
+            Tab::Home => 30.0,
+            Tab::Images => 30.0,
+        };
+
         (
             LocalRect::new(origin, size),
             [
-                origin.x + size.width / 2.0 - 50.0,
+                origin.x + size.width / 2.0 - half_text_width,
                 origin.y + size.height / 2.0 + font_size as f32 / 2.0,
             ],
         )
     };
 
-    let mut tab = Tab::Home;
+    let new_tab;
 
     // Check if the mouse is hovering over the rectangle
     if let Some(mouse_pos) = mouse_pos {
-        if image_rect.contains(mouse_pos) {
-            tab = Tab::Images;
+        if rect.contains(mouse_pos) {
+            new_tab = match tab {
+                Tab::Home => Tab::Images,
+                Tab::Images => Tab::Home,
+            };
+        } else {
+            new_tab = tab;
         }
+    } else {
+        new_tab = tab;
     }
 
-    if tab == Tab::Home {
-        let radius = 15.0;
-        let paint_index = vger.color_paint(Color {
-            r: 1.0,
-            g: 1.0,
-            b: 1.0,
+    let radius = 15.0;
+    let paint_index = vger.color_paint(Color {
+        r: 1.0,
+        g: 1.0,
+        b: 1.0,
+        a: 1.0,
+    });
+    vger.fill_rect(rect, radius, paint_index);
+    vger.save();
+    vger.translate(text_offset);
+    let text = match tab {
+        Tab::Home => "Images",
+        Tab::Images => "Home",
+    };
+    vger.text(
+        text,
+        font_size,
+        Color {
+            r: 0.0,
+            g: 0.0,
+            b: 0.0,
             a: 1.0,
-        });
-        vger.fill_rect(image_rect, radius, paint_index);
-        vger.save();
-        vger.translate(image_rect_text_offset);
-        vger.text(
-            "Hover me!",
-            font_size,
-            Color {
-                r: 0.0,
-                g: 0.0,
-                b: 0.0,
-                a: 1.0,
-            },
-            None,
-        );
-        vger.restore();
-    }
+        },
+        None,
+    );
+    vger.restore();
 
-    tab
+    new_tab
 }
 
 /// Renders the scene to the window using `vger`
@@ -315,6 +352,7 @@ pub struct App {
     context: Option<DrawContext>, // The drawing context, wrapped in an `Option` for initialization
     images: Vec<ImageIndex>,
     mouse_pos: Option<[f32; 2]>, // The current mouse position
+    tab: Tab,
 }
 
 impl<'window> ApplicationHandler for App {
@@ -413,8 +451,8 @@ impl<'window> ApplicationHandler for App {
                         }
                         None => None,
                     };
-                    let tab = tab_selector(vger, mouse_pos);
-                    match tab {
+                    self.tab = tab_selector(vger, [width, height], mouse_pos, self.tab);
+                    match self.tab {
                         Tab::Home => home(vger, [width, height]),
                         Tab::Images => images(vger, &self.images),
                     }
