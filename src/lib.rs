@@ -297,7 +297,7 @@ impl Vger {
             image_bind_groups: vec![],
             image_bind_group_layout,
             default_image_bind_group,
-            image_renderer: Result::Err(RendererInactive),
+            image_renderer: Err(RendererInactive),
         }
     }
 
