@@ -76,6 +76,7 @@ impl Scissor {
 pub struct Vger {
     device: Arc<wgpu::Device>,
     queue: Arc<wgpu::Queue>,
+    texture_format: wgpu::TextureFormat,
     scenes: [Scene; 3],
     cur_scene: usize,
     cur_layer: usize,
@@ -97,7 +98,7 @@ pub struct Vger {
     image_bind_groups: Vec<Option<wgpu::BindGroup>>,
     image_bind_group_layout: wgpu::BindGroupLayout,
     default_image_bind_group: wgpu::BindGroup,
-    image_renderer: ImageRenderer,
+    image_renderer: Result<ImageRenderer, RendererInactive>,
 }
 
 impl Vger {
@@ -271,11 +272,10 @@ impl Vger {
 
         let layout = Layout::new(CoordinateSystem::PositiveYUp);
 
-        let image_renderer = ImageRenderer::new(device.clone(), queue.clone(), texture_format);
-
         Self {
             device,
             queue,
+            texture_format,
             scenes,
             cur_scene: 0,
             cur_layer: 0,
@@ -297,7 +297,7 @@ impl Vger {
             image_bind_groups: vec![],
             image_bind_group_layout,
             default_image_bind_group,
-            image_renderer,
+            image_renderer: Result::Err(RendererInactive),
         }
     }
 
@@ -321,8 +321,22 @@ impl Vger {
         self.scissor_count = 0;
         self.pen = LocalPoint::zero();
 
-        self.image_renderer
-            .begin(window_width, window_height, device_px_ratio);
+        match &mut self.image_renderer {
+            Ok(image_renderer) => {
+                image_renderer.begin(window_width, window_height, device_px_ratio);
+            }
+            Err(RendererInactive) => {
+                self.image_renderer = Ok({
+                    let mut image_renderer = ImageRenderer::new(
+                        self.device.clone(),
+                        self.queue.clone(),
+                        self.texture_format,
+                    );
+                    image_renderer.begin(window_width, window_height, device_px_ratio);
+                    image_renderer
+                });
+            }
+        }
     }
 
     /// Saves rendering state (transform and scissor rect).
@@ -395,7 +409,12 @@ impl Vger {
             }
 
             // Image rendering commands
-            self.image_renderer.encode(&mut rpass);
+            match &mut self.image_renderer {
+                Ok(image_renderer) => {
+                    image_renderer.encode(&mut rpass);
+                }
+                Err(RendererInactive) => (),
+            }
         }
 
         queue.submit(Some(encoder.finish()));
@@ -838,12 +857,26 @@ impl Vger {
 
     /// Add an image to the renderer.
     pub fn store_image(&mut self, path: &str) -> ImageIndex {
-        self.image_renderer.store_image(path)
+        match &mut self.image_renderer {
+            Ok(image_renderer) => image_renderer.store_image(path),
+            // We should always activate the image renderer if the user is trying to store an image
+            Err(RendererInactive) => {
+                self.image_renderer = Ok(ImageRenderer::new(
+                    self.device.clone(),
+                    self.queue.clone(),
+                    self.texture_format,
+                ));
+                self.image_renderer.as_mut().ok().unwrap().store_image(path)
+            }
+        }
     }
 
     /// Renders an image.
-    pub fn image(&mut self, image_index: ImageIndex) -> &mut RenderImage {
-        self.image_renderer.image(image_index)
+    pub fn image(&mut self, image_index: ImageIndex) -> Result<&mut RenderImage, RenderImageError> {
+        match &mut self.image_renderer {
+            Ok(image_renderer) => image_renderer.image(image_index),
+            Err(RendererInactive) => Err(RenderImageError::RendererInactive),
+        }
     }
 
     fn add_xform(&mut self) -> usize {

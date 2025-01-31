@@ -1,26 +1,49 @@
-use std::sync::Arc;
+use std::{fmt, sync::Arc};
 use wgpu::util::DeviceExt;
 
 use crate::*;
 
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-struct Vertex {
-    position: [f32; 2],
-    tex_coords: [f32; 2],
+pub(crate) struct RendererInactive;
+
+pub enum RenderImageError {
+    NoImages,
+    FailedToRetrieveLastMut,
+    ImageNotFound { index: usize },
+    IndexOutOfBounds { index: usize, total_images: usize },
+    RendererInactive,
 }
 
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-struct ImageUniform {
-    offset: [f32; 2],
-    scale: [f32; 2],
-}
-
-struct StoredImage {
-    width: u32,
-    height: u32,
-    bind_group: wgpu::BindGroup,
+impl fmt::Debug for RenderImageError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RenderImageError::NoImages => {
+                write!(f, "No images are currently stored in the renderer. This should never happen and the fact that it did is extremely concerning.")
+            }
+            RenderImageError::FailedToRetrieveLastMut => {
+                write!(f, "Failed to retrieve mutable reference to last image")
+            }
+            RenderImageError::ImageNotFound { index } => {
+                write!(
+                    f,
+                    "Image at index {} could not be found in the stored images",
+                    index
+                )
+            }
+            RenderImageError::IndexOutOfBounds {
+                index,
+                total_images,
+            } => {
+                write!(
+                    f,
+                    "Image index {} is out of bounds (total images: {})",
+                    index, total_images
+                )
+            }
+            RenderImageError::RendererInactive => {
+                write!(f, "Cannot render image - renderer is currently inactive")
+            }
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -588,8 +611,26 @@ impl ImageRenderer {
         self.device_px_ratio = device_px_ratio;
     }
 
-    pub fn image(&mut self, index: ImageIndex) -> &mut RenderImage {
-        let stored_image = &self.stored_images[index.index];
+    pub fn image(&mut self, index: ImageIndex) -> Result<&mut RenderImage, RenderImageError> {
+        // Check if any images are stored
+        if self.stored_images.is_empty() {
+            return Err(RenderImageError::NoImages);
+        }
+
+        // Check if index is valid
+        if index.index >= self.stored_images.len() {
+            return Err(RenderImageError::IndexOutOfBounds {
+                index: index.index,
+                total_images: self.stored_images.len(),
+            });
+        }
+
+        let stored_image = match self.stored_images.get(index.index) {
+            Some(image) => image,
+            None => return Err(RenderImageError::ImageNotFound { index: index.index }),
+        };
+
+        // Create uniform buffer for image transform
         let image_uniform_buffer =
             self.device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -601,6 +642,7 @@ impl ImageRenderer {
                     usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                 });
 
+        // Create bind group for aspect ratio uniforms
         let aspect_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Aspect Bind Group"),
             layout: &self.aspect_bind_group_layout,
@@ -614,7 +656,8 @@ impl ImageRenderer {
             }],
         });
 
-        self.render_images.push(RenderImage {
+        // Create new render image with default settings
+        let render_image = RenderImage {
             offset_pixels: LocalVector::zero(),
             size_pixels: LocalSize::new(
                 (stored_image.width as f32) / self.device_px_ratio,
@@ -627,7 +670,35 @@ impl ImageRenderer {
             image_uniform_buffer,
             aspect_bind_group,
             clip_overflow: false,
-        });
-        self.render_images.last_mut().unwrap()
+        };
+
+        // Add the render image to the vector
+        self.render_images.push(render_image);
+
+        // Return mutable reference to the newly added render image
+        match self.render_images.last_mut() {
+            Some(image) => Ok(image),
+            None => Err(RenderImageError::FailedToRetrieveLastMut), // This should never happen but handle it anyway
+        }
     }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct Vertex {
+    position: [f32; 2],
+    tex_coords: [f32; 2],
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct ImageUniform {
+    offset: [f32; 2],
+    scale: [f32; 2],
+}
+
+struct StoredImage {
+    width: u32,
+    height: u32,
+    bind_group: wgpu::BindGroup,
 }

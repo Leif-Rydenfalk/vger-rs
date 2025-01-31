@@ -273,12 +273,16 @@ fn images(vger: &mut Vger, images: &Vec<ImageIndex>) {
 
         // First row
         vger.image(image_index)
+            .ok()
+            .unwrap()
             .fit(Fit::Contain)
             .v_align(AxisAlignEnum::Start)
             .size(size)
             .overflow_hidden()
             .offset([0.0, y_offset]);
         vger.image(image_index)
+            .ok()
+            .unwrap()
             .fit(Fit::Contain)
             .v_align(AxisAlignEnum::Center)
             .size(size)
@@ -286,6 +290,7 @@ fn images(vger: &mut Vger, images: &Vec<ImageIndex>) {
             .offset([padding_size, y_offset]);
 
         vger.image(image_index)
+            .unwrap()
             .v_align(AxisAlignEnum::End)
             .fit(Fit::Contain)
             .size(size)
@@ -294,6 +299,7 @@ fn images(vger: &mut Vger, images: &Vec<ImageIndex>) {
 
         // Custom vertical alignment
         vger.image(image_index)
+            .unwrap()
             .v_align(0.618033989)
             .fit(Fit::Contain)
             .size(size)
@@ -303,12 +309,14 @@ fn images(vger: &mut Vger, images: &Vec<ImageIndex>) {
         // Second row
         // No fit which causes the image to be stretched
         vger.image(image_index)
+            .unwrap()
             .size(size)
             .overflow_hidden()
             .offset([0.0, padding_size + y_offset]);
 
         // Hidden overflow
         vger.image(image_index)
+            .unwrap()
             .fit(Fit::Cover)
             .h_align(AxisAlignEnum::Start)
             .v_align(AxisAlignEnum::Start)
@@ -318,6 +326,7 @@ fn images(vger: &mut Vger, images: &Vec<ImageIndex>) {
 
         // Visible overflow
         vger.image(image_index)
+            .unwrap()
             .fit(Fit::Cover)
             .h_align(AxisAlignEnum::Start)
             .v_align(AxisAlignEnum::Start)
