@@ -64,8 +64,8 @@ pub enum Fit {
 
 // Updated RenderImage struct
 pub struct RenderImage {
-    offset_pixels: [f32; 2],
-    size_pixels: [f32; 2],
+    offset_pixels: LocalVector,
+    size_pixels: LocalSize,
     fit: Option<Fit>,
     horizontal_align: Box<dyn AxisAlign>,
     vertical_align: Box<dyn AxisAlign>,
@@ -77,17 +77,27 @@ pub struct RenderImage {
 
 impl RenderImage {
     pub fn scale(&mut self, scale: f32) -> &mut Self {
-        self.size_pixels = [self.size_pixels[0] * scale, self.size_pixels[1] * scale];
+        self.size_pixels = self.size_pixels * scale;
         self
     }
 
-    pub fn frame(&mut self, size: [f32; 2]) -> &mut Self {
-        self.size_pixels = size;
+    pub fn width(&mut self, width: f32) -> &mut Self {
+        self.size_pixels.width = width;
+        self
+    }
+
+    pub fn height(&mut self, height: f32) -> &mut Self {
+        self.size_pixels.height = height;
+        self
+    }
+
+    pub fn size(&mut self, size: [f32; 2]) -> &mut Self {
+        self.size_pixels = LocalSize::new(size[0], size[1]);
         self
     }
 
     pub fn offset(&mut self, offset: [f32; 2]) -> &mut Self {
-        self.offset_pixels = offset;
+        self.offset_pixels = LocalVector::new(offset[0], offset[1]);
         self
     }
 
@@ -106,8 +116,8 @@ impl RenderImage {
         self
     }
 
-    pub fn overflow_visible(&mut self) -> &mut Self {
-        self.clip_overflow = false;
+    pub fn overflow_hidden(&mut self) -> &mut Self {
+        self.clip_overflow = true;
         self
     }
 }
@@ -355,8 +365,8 @@ impl ImageRenderer {
             let window_width = self.window_size.width;
             let window_height = self.window_size.height;
 
-            let container_width = image.size_pixels[0];
-            let container_height = image.size_pixels[1];
+            let container_width = image.size_pixels.width;
+            let container_height = image.size_pixels.height;
             let image_width = stored_image.width as f32;
             let image_height = stored_image.height as f32;
             let fit = image.fit.unwrap_or(Fit::Fill);
@@ -377,9 +387,9 @@ impl ImageRenderer {
 
             // Calculate container's center in NDC
             let container_center_x =
-                (image.offset_pixels[0] + container_width / 2.0) / window_width * 2.0 - 1.0;
+                (image.offset_pixels.x + container_width / 2.0) / window_width * 2.0 - 1.0;
             let container_center_y =
-                1.0 - (image.offset_pixels[1] + container_height / 2.0) / window_height * 2.0;
+                1.0 - (image.offset_pixels.y + container_height / 2.0) / window_height * 2.0;
 
             // Calculate the quad's scale in NDC
             let quad_scale_x = container_scale_x * image_scale[0];
@@ -420,10 +430,10 @@ impl ImageRenderer {
                 let window_height = self.window_size.height;
 
                 // Calculate clamped scissor rect
-                let x_start = image.offset_pixels[0].max(0.0);
-                let y_start = image.offset_pixels[1].max(0.0);
-                let x_end = (image.offset_pixels[0] + image.size_pixels[0]).min(window_width);
-                let y_end = (image.offset_pixels[1] + image.size_pixels[1]).min(window_height);
+                let x_start = image.offset_pixels.x.max(0.0);
+                let y_start = image.offset_pixels.y.max(0.0);
+                let x_end = (image.offset_pixels.x + image.size_pixels.width).min(window_width);
+                let y_end = (image.offset_pixels.y + image.size_pixels.height).min(window_height);
 
                 let scissor_x = x_start as u32;
                 let scissor_y = y_start as u32;
@@ -611,15 +621,15 @@ impl ImageRenderer {
         });
 
         self.render_images.push(RenderImage {
-            offset_pixels: [0.0, 0.0],
-            size_pixels: [stored_image.width as f32, stored_image.height as f32],
+            offset_pixels: LocalVector::zero(),
+            size_pixels: LocalSize::new(stored_image.width as f32, stored_image.height as f32),
             fit: Some(Fit::Fill),
             horizontal_align: Box::new(AxisAlignEnum::Center),
             vertical_align: Box::new(AxisAlignEnum::Center),
             index,
             image_uniform_buffer,
             aspect_bind_group,
-            clip_overflow: true,
+            clip_overflow: false,
         });
         self.render_images.last_mut().unwrap()
     }

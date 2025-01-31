@@ -5,6 +5,7 @@ use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::{Window, WindowId};
 
+use vger::defs::*;
 use vger::*;
 
 /// Represents the state required for rendering and interacting with the GPU.
@@ -102,10 +103,41 @@ async fn setup(window: Arc<Window>) -> DrawContext {
     }
 }
 
+enum Page {
+    Home,
+    Images,
+}
+
+/// Selects the tab based on the mouse position
+/// If the mouse is hovering over a rectangle, it will select the images tab
+fn tab_selector(vger: &mut Vger, mouse_pos: Option<LocalPoint>) -> Page {
+    if let Some(mouse_pos) = mouse_pos {
+        let paint_index = vger.color_paint(Color {
+            r: 1.0,
+            g: 1.0,
+            b: 1.0,
+            a: 1.0,
+        });
+
+        let origin: LocalPoint = LocalPoint::new(10.0, 10.0);
+        let size: LocalSize = LocalSize::new(100.0, 100.0);
+        let rect: LocalRect = LocalRect::new(origin, size);
+        let radius = 5.0;
+        vger.fill_rect(rect, radius, paint_index);
+
+        // Check if the mouse is hovering over the rectangle
+        if rect.contains(mouse_pos) {
+            return Page::Images;
+        }
+    }
+
+    return Page::Home;
+}
+
 /// Renders the scene to the window using `vger`
 ///
 /// This function draws a red circle in the center of the window and renders sample text.
-fn render(vger: &mut Vger, window_size: [f32; 2], images: &Vec<ImageIndex>) {
+fn home(vger: &mut Vger, window_size: [f32; 2]) {
     // Save the current drawing state (useful for transformations)
     vger.save();
 
@@ -160,17 +192,89 @@ fn render(vger: &mut Vger, window_size: [f32; 2], images: &Vec<ImageIndex>) {
         Some(window_size[0] - 20.0),
     );
     vger.restore();
+}
+
+fn images(vger: &mut Vger, window_size: [f32; 2], images: &Vec<ImageIndex>) {
+    // Save the current drawing state (useful for transformations)
     vger.save();
 
-    vger.translate([10.0, 100.0]);
+    fn row(
+        image_index: ImageIndex,
+        vger: &mut Vger,
+        y_offset: f32,
+        width_height: f32,
+    ) -> (f32, f32) {
+        let size = [width_height, width_height];
+        let padding = 20.0;
+        let padding_size = width_height + padding;
 
-    vger.image(images[0])
-        .fit(Fit::Cover)
-        .h_align(AxisAlignEnum::Start)
-        .v_align(AxisAlignEnum::Start)
-        .overflow_visible()
-        .frame([50.0, 50.0])
-        .offset([0.0, 0.0]);
+        // First row
+        vger.image(image_index)
+            .fit(Fit::Contain)
+            .v_align(AxisAlignEnum::Start)
+            .size(size)
+            .overflow_hidden()
+            .offset([0.0, y_offset]);
+        vger.image(image_index)
+            .fit(Fit::Contain)
+            .v_align(AxisAlignEnum::Center)
+            .size(size)
+            .overflow_hidden()
+            .offset([padding_size, y_offset]);
+
+        vger.image(image_index)
+            .v_align(AxisAlignEnum::End)
+            .fit(Fit::Contain)
+            .size(size)
+            .overflow_hidden()
+            .offset([padding_size * 2.0, y_offset]);
+
+        // Custom vertical alignment
+        vger.image(image_index)
+            .v_align(0.618033989)
+            .fit(Fit::Contain)
+            .size(size)
+            .overflow_hidden()
+            .offset([padding_size * 3.0, y_offset]);
+
+        // Second row
+        // No fit which causes the image to be stretched
+        vger.image(image_index)
+            .size(size)
+            .overflow_hidden()
+            .offset([0.0, padding_size + y_offset]);
+
+        // Hidden overflow
+        vger.image(image_index)
+            .fit(Fit::Cover)
+            .h_align(AxisAlignEnum::Start)
+            .v_align(AxisAlignEnum::Start)
+            .overflow_hidden()
+            .size(size)
+            .offset([padding_size, padding_size + y_offset]);
+
+        // Visible overflow
+        vger.image(image_index)
+            .fit(Fit::Cover)
+            .h_align(AxisAlignEnum::Start)
+            .v_align(AxisAlignEnum::Start)
+            .size(size)
+            .offset([padding_size * 2.0, padding_size + y_offset]);
+
+        // return the y offset and size for the next row
+        (padding_size * 2.0 + y_offset, width_height * 2.0)
+    }
+
+    // let mut y_offset = 0.0;
+    // let mut width_height = 2.0;
+    // (0..8).for_each(|_| {
+    //     (y_offset, width_height) = row(images[0], vger, y_offset, width_height);
+    // });
+
+    let y_offset = 50.0;
+    let width_height = 200.0;
+
+    row(images[0], vger, y_offset, width_height);
 
     vger.restore();
 }
@@ -181,6 +285,7 @@ pub struct App {
     window: Option<Arc<Window>>, // The application window, wrapped in an `Option` for initialization
     context: Option<DrawContext>, // The drawing context, wrapped in an `Option` for initialization
     images: Vec<ImageIndex>,
+    mouse_pos: Option<[f32; 2]>, // The current mouse position
 }
 
 impl<'window> ApplicationHandler for App {
@@ -218,6 +323,18 @@ impl<'window> ApplicationHandler for App {
         event: WindowEvent,
     ) {
         match event {
+            WindowEvent::CursorMoved { position, .. } => {
+                self.mouse_pos = Some([position.x as f32, position.y as f32]);
+                if let (Some(window), Some(context)) = (&self.window, &mut self.context) {
+                    window.request_redraw();
+                }
+            }
+            WindowEvent::CursorLeft { .. } => {
+                self.mouse_pos = None;
+                if let (Some(window), Some(context)) = (&self.window, &mut self.context) {
+                    window.request_redraw();
+                }
+            }
             // Close the application when the window close event is triggered.
             WindowEvent::CloseRequested => {
                 event_loop.exit();
@@ -256,7 +373,22 @@ impl<'window> ApplicationHandler for App {
                     // Begin rendering with `vger` and set the window size and scale factor
                     let vger = &mut context.vger;
                     vger.begin(width, height, scale);
-                    render(vger, [width, height], &self.images); // Call the render function
+                    let mouse_pos = match self.mouse_pos {
+                        Some([x, y]) => {
+                            // Convert the mouse position to local coordinates
+                            let scale = window.scale_factor() as f32;
+                            let x = x / scale;
+                            let y = y / scale;
+                            let y = height - y; // Invert height to match Vger's coordinate system
+                            Some(LocalPoint::new(x, y))
+                        }
+                        None => None,
+                    };
+                    let tab = tab_selector(vger, mouse_pos);
+                    match tab {
+                        Page::Home => home(vger, [width, height]),
+                        Page::Images => images(vger, [width, height], &self.images),
+                    }
 
                     // Create a texture view for the frame
                     let texture_view = frame
