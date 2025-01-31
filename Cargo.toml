@@ -1,6 +1,6 @@
 [workspace]
-resolver = "2"                # What does this do?
-members = [".", "examples/basic"]
+resolver = "2"  
+members = [".", "examples/vger_winit_example"] 
 # Only check / build vger crate by default (check all with `--workspace`)
 default-members = ["."]
 
