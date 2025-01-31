@@ -105,13 +105,13 @@ async fn setup(window: Arc<Window>) -> DrawContext {
 
 #[derive(Clone, Copy, PartialEq)]
 enum Tab {
-    Home,
+    Dot,
     Images,
 }
 
 impl Default for Tab {
     fn default() -> Self {
-        Tab::Home
+        Tab::Dot
     }
 }
 
@@ -125,7 +125,7 @@ fn tab_selector(vger: &mut Vger, mouse_pos: Option<LocalPoint>, tab: Tab) -> Tab
         let width = 200.0;
         let height = 50.0;
         let (origin, size) = match tab {
-            Tab::Home => (
+            Tab::Dot => (
                 LocalPoint::new(padding, padding),
                 LocalSize::new(width, height),
             ),
@@ -136,8 +136,8 @@ fn tab_selector(vger: &mut Vger, mouse_pos: Option<LocalPoint>, tab: Tab) -> Tab
         };
 
         let half_text_width = match tab {
-            Tab::Home => 30.0,
-            Tab::Images => 30.0,
+            Tab::Dot => 30.0,
+            Tab::Images => 20.0,
         };
 
         (
@@ -155,8 +155,8 @@ fn tab_selector(vger: &mut Vger, mouse_pos: Option<LocalPoint>, tab: Tab) -> Tab
     if let Some(mouse_pos) = mouse_pos {
         if rect.contains(mouse_pos) {
             new_tab = match tab {
-                Tab::Home => Tab::Images,
-                Tab::Images => Tab::Home,
+                Tab::Dot => Tab::Images,
+                Tab::Images => Tab::Dot,
             };
         } else {
             new_tab = tab;
@@ -176,8 +176,8 @@ fn tab_selector(vger: &mut Vger, mouse_pos: Option<LocalPoint>, tab: Tab) -> Tab
     vger.save();
     vger.translate(text_offset);
     let text = match tab {
-        Tab::Home => "Images",
-        Tab::Images => "Home",
+        Tab::Dot => "Images",
+        Tab::Images => "Dot",
     };
     vger.text(
         text,
@@ -198,7 +198,7 @@ fn tab_selector(vger: &mut Vger, mouse_pos: Option<LocalPoint>, tab: Tab) -> Tab
 /// Renders the scene to the window using `vger`
 ///
 /// This function draws a red circle in the center of the window and renders sample text.
-fn home(vger: &mut Vger, window_size: [f32; 2]) {
+fn dot(vger: &mut Vger, window_size: [f32; 2]) {
     // Save the current drawing state (useful for transformations)
     vger.save();
 
@@ -448,7 +448,7 @@ impl<'window> ApplicationHandler for App {
                     };
                     self.tab = tab_selector(vger, mouse_pos, self.tab);
                     match self.tab {
-                        Tab::Home => home(vger, [width, height]),
+                        Tab::Dot => dot(vger, [width, height]),
                         Tab::Images => images(vger, &self.images),
                     }
 
