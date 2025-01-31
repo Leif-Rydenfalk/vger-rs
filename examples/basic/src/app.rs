@@ -103,47 +103,64 @@ async fn setup(window: Arc<Window>) -> DrawContext {
     }
 }
 
-enum Page {
+#[derive(PartialEq)]
+enum Tab {
     Home,
     Images,
 }
 
 /// Selects the tab based on the mouse position
 /// If the mouse is hovering over a rectangle, it will select the images tab
-fn tab_selector(vger: &mut Vger, mouse_pos: Option<LocalPoint>) -> Page {
+fn tab_selector(vger: &mut Vger, mouse_pos: Option<LocalPoint>) -> Tab {
+    let font_size: u32 = 20;
+
+    let (image_rect, image_rect_text_offset) = {
+        let origin: LocalPoint = LocalPoint::new(10.0, 10.0);
+        let size: LocalSize = LocalSize::new(200.0, 50.0);
+        (
+            LocalRect::new(origin, size),
+            [
+                origin.x + size.width / 2.0 - 50.0,
+                origin.y + size.height / 2.0 + font_size as f32 / 2.0,
+            ],
+        )
+    };
+
+    let mut tab = Tab::Home;
+
+    // Check if the mouse is hovering over the rectangle
     if let Some(mouse_pos) = mouse_pos {
-        let color = Color {
+        if image_rect.contains(mouse_pos) {
+            tab = Tab::Images;
+        }
+    }
+
+    if tab == Tab::Home {
+        let radius = 15.0;
+        let paint_index = vger.color_paint(Color {
             r: 1.0,
             g: 1.0,
             b: 1.0,
             a: 1.0,
-        };
-        let text_color = Color {
-            r: 0.0,
-            g: 0.0,
-            b: 0.0,
-            a: 1.0,
-        };
-        let paint_index = vger.color_paint(color);
-        let origin: LocalPoint = LocalPoint::new(10.0, 10.0);
-        let size: LocalSize = LocalSize::new(200.0, 50.0);
-        let rect: LocalRect = LocalRect::new(origin, size);
-        let radius = 5.0;
-        vger.fill_rect(rect, radius, paint_index);
+        });
+        vger.fill_rect(image_rect, radius, paint_index);
         vger.save();
-        // go to the center of the rectangle
-        let font_size: u32 = 20;
-        vger.translate([30.0, origin.y + size.height / 2.0 + font_size as f32 / 2.0]);
-        vger.text("Hover me!", font_size, text_color, None);
+        vger.translate(image_rect_text_offset);
+        vger.text(
+            "Hover me!",
+            font_size,
+            Color {
+                r: 0.0,
+                g: 0.0,
+                b: 0.0,
+                a: 1.0,
+            },
+            None,
+        );
         vger.restore();
-
-        // Check if the mouse is hovering over the rectangle
-        if rect.contains(mouse_pos) {
-            return Page::Images;
-        }
     }
 
-    return Page::Home;
+    tab
 }
 
 /// Renders the scene to the window using `vger`
@@ -206,7 +223,7 @@ fn home(vger: &mut Vger, window_size: [f32; 2]) {
     vger.restore();
 }
 
-fn images(vger: &mut Vger, window_size: [f32; 2], images: &Vec<ImageIndex>) {
+fn images(vger: &mut Vger, images: &Vec<ImageIndex>) {
     // Save the current drawing state (useful for transformations)
     vger.save();
 
@@ -337,13 +354,13 @@ impl<'window> ApplicationHandler for App {
         match event {
             WindowEvent::CursorMoved { position, .. } => {
                 self.mouse_pos = Some([position.x as f32, position.y as f32]);
-                if let (Some(window), Some(context)) = (&self.window, &mut self.context) {
+                if let Some(window) = &self.window {
                     window.request_redraw();
                 }
             }
             WindowEvent::CursorLeft { .. } => {
                 self.mouse_pos = None;
-                if let (Some(window), Some(context)) = (&self.window, &mut self.context) {
+                if let Some(window) = &self.window {
                     window.request_redraw();
                 }
             }
@@ -398,8 +415,8 @@ impl<'window> ApplicationHandler for App {
                     };
                     let tab = tab_selector(vger, mouse_pos);
                     match tab {
-                        Page::Home => home(vger, [width, height]),
-                        Page::Images => images(vger, [width, height], &self.images),
+                        Tab::Home => home(vger, [width, height]),
+                        Tab::Images => images(vger, &self.images),
                     }
 
                     // Create a texture view for the frame
