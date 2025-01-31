@@ -437,6 +437,7 @@ impl<'window> ApplicationHandler for App {
                     // Begin rendering with `vger` and set the window size and scale factor
                     let vger = &mut context.vger;
                     vger.begin(width, height, scale);
+
                     let mouse_pos = match self.mouse_pos {
                         Some([x, y]) => {
                             // Convert the mouse position to local coordinates
