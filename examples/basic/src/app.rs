@@ -117,7 +117,12 @@ impl Default for Tab {
 
 /// Selects the tab based on the mouse position
 /// If the mouse is hovering over a rectangle, it will select the images tab
-fn tab_selector(vger: &mut Vger, mouse_pos: Option<LocalPoint>, tab: Tab) -> Tab {
+fn tab_selector(
+    vger: &mut Vger,
+    mouse_pos: Option<LocalPoint>,
+    tab: Tab,
+    selected_tab: Tab,
+) -> Option<Tab> {
     let font_size: u32 = 20;
 
     let new_tab_if_hover = match tab {
@@ -164,12 +169,12 @@ fn tab_selector(vger: &mut Vger, mouse_pos: Option<LocalPoint>, tab: Tab) -> Tab
     }
 
     let radius = 15.0;
-    let paint_index = vger.color_paint(Color {
-        r: 1.0,
-        g: 1.0,
-        b: 1.0,
-        a: 1.0,
-    });
+    let color = if tab == selected_tab {
+        Color::gray(1.0)
+    } else {
+        Color::gray(0.4)
+    };
+    let paint_index = vger.color_paint(color);
     vger.fill_rect(rect, radius, paint_index);
     vger.save();
     vger.translate(text_offset);
@@ -191,9 +196,9 @@ fn tab_selector(vger: &mut Vger, mouse_pos: Option<LocalPoint>, tab: Tab) -> Tab
     vger.restore();
 
     if hover {
-        new_tab_if_hover
+        Some(new_tab_if_hover)
     } else {
-        tab
+        None
     }
 }
 
@@ -458,7 +463,15 @@ impl<'window> ApplicationHandler for App {
                         }
                         None => None,
                     };
-                    self.tab = tab_selector(vger, mouse_pos, self.tab);
+
+                    if let Some(new_tab) = tab_selector(vger, mouse_pos, Tab::Dot, self.tab) {
+                        self.tab = new_tab;
+                    }
+
+                    if let Some(new_tab) = tab_selector(vger, mouse_pos, Tab::Images, self.tab) {
+                        self.tab = new_tab;
+                    }
+
                     match self.tab {
                         Tab::Dot => dot(vger, [width, height]),
                         Tab::Images => images(vger, &self.images),
