@@ -117,12 +117,7 @@ impl Default for Tab {
 
 /// Selects the tab based on the mouse position
 /// If the mouse is hovering over a rectangle, it will select the images tab
-fn tab_selector(
-    vger: &mut Vger,
-    window_size: [f32; 2],
-    mouse_pos: Option<LocalPoint>,
-    tab: Tab,
-) -> Tab {
+fn tab_selector(vger: &mut Vger, mouse_pos: Option<LocalPoint>, tab: Tab) -> Tab {
     let font_size: u32 = 20;
 
     let (rect, text_offset) = {
@@ -135,7 +130,7 @@ fn tab_selector(
                 LocalSize::new(width, height),
             ),
             Tab::Images => (
-                LocalPoint::new(window_size[0] - width - padding, padding),
+                LocalPoint::new(width + padding * 2.0, padding),
                 LocalSize::new(width, height),
             ),
         };
@@ -451,7 +446,7 @@ impl<'window> ApplicationHandler for App {
                         }
                         None => None,
                     };
-                    self.tab = tab_selector(vger, [width, height], mouse_pos, self.tab);
+                    self.tab = tab_selector(vger, mouse_pos, self.tab);
                     match self.tab {
                         Tab::Home => home(vger, [width, height]),
                         Tab::Images => images(vger, &self.images),
