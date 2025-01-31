@@ -446,12 +446,7 @@ impl ImageRenderer {
                 }
             } else {
                 // Reset scissor to the entire window when overflow is visible
-                rpass.set_scissor_rect(
-                    0,
-                    0,
-                    self.window_size.width as u32,
-                    self.window_size.height as u32,
-                );
+                rpass.set_scissor_rect(0, 0, window_size.width as u32, window_size.height as u32);
             }
 
             if !skip {
