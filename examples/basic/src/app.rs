@@ -120,6 +120,11 @@ impl Default for Tab {
 fn tab_selector(vger: &mut Vger, mouse_pos: Option<LocalPoint>, tab: Tab) -> Tab {
     let font_size: u32 = 20;
 
+    let new_tab_if_hover = match tab {
+        Tab::Dot => Tab::Images,
+        Tab::Images => Tab::Dot,
+    };
+
     let (rect, text_offset) = {
         let padding = 10.0;
         let width = 200.0;
@@ -135,9 +140,9 @@ fn tab_selector(vger: &mut Vger, mouse_pos: Option<LocalPoint>, tab: Tab) -> Tab
             ),
         };
 
-        let half_text_width = match tab {
-            Tab::Dot => 30.0,
-            Tab::Images => 20.0,
+        let half_text_width = match new_tab_if_hover {
+            Tab::Dot => 20.0,
+            Tab::Images => 30.0,
         };
 
         (
@@ -149,20 +154,13 @@ fn tab_selector(vger: &mut Vger, mouse_pos: Option<LocalPoint>, tab: Tab) -> Tab
         )
     };
 
-    let new_tab;
+    let mut hover = false;
 
     // Check if the mouse is hovering over the rectangle
     if let Some(mouse_pos) = mouse_pos {
         if rect.contains(mouse_pos) {
-            new_tab = match tab {
-                Tab::Dot => Tab::Images,
-                Tab::Images => Tab::Dot,
-            };
-        } else {
-            new_tab = tab;
+            hover = true;
         }
-    } else {
-        new_tab = tab;
     }
 
     let radius = 15.0;
@@ -192,7 +190,11 @@ fn tab_selector(vger: &mut Vger, mouse_pos: Option<LocalPoint>, tab: Tab) -> Tab
     );
     vger.restore();
 
-    new_tab
+    if hover {
+        new_tab_if_hover
+    } else {
+        tab
+    }
 }
 
 /// Renders the scene to the window using `vger`
