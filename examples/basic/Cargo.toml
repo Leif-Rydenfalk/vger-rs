@@ -10,3 +10,5 @@ winit = "0.30"
 nanorand = { version = "0.7" }
 wgpu = { workspace = true }
 futures = "0.3"
+bytemuck = { version = "1.13.1", features = ["derive"] }
+image = "0.25.5"

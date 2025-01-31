@@ -1,5 +1,5 @@
 [workspace]
-resolver = "2" # What does this do?
+resolver = "2"                # What does this do?
 members = [".", "examples/*"]
 # Only check / build vger crate by default (check all with `--workspace`)
 default-members = ["."]
@@ -26,6 +26,8 @@ wgpu = { workspace = true }
 euclid = "0.22.7"
 fontdue = "0.9.0"
 rect_packer = "0.2.1"
+bytemuck = { version = "1.13.1", features = ["derive"] }
+image = "0.25.5"
 
 [dev-dependencies]
 png = "0.17.6"

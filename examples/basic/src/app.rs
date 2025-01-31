@@ -105,7 +105,7 @@ async fn setup(window: Arc<Window>) -> DrawContext {
 /// Renders the scene to the window using `vger`
 ///
 /// This function draws a red circle in the center of the window and renders sample text.
-fn render(vger: &mut Vger, window_size: [f32; 2]) {
+fn render(vger: &mut Vger, window_size: [f32; 2], images: &Vec<ImageIndex>) {
     // Save the current drawing state (useful for transformations)
     vger.save();
 
@@ -164,8 +164,13 @@ fn render(vger: &mut Vger, window_size: [f32; 2]) {
 
     vger.translate([10.0, 100.0]);
 
-    let image = vger.store_image("assets/images/rust.png");
-    vger.image(image);
+    vger.image(images[0])
+        .fit(Fit::Cover)
+        .h_align(AxisAlignEnum::Start)
+        .v_align(AxisAlignEnum::Start)
+        .overflow_visible()
+        .frame([50.0, 50.0])
+        .offset([0.0, 0.0]);
 
     vger.restore();
 }
@@ -175,6 +180,7 @@ fn render(vger: &mut Vger, window_size: [f32; 2]) {
 pub struct App {
     window: Option<Arc<Window>>, // The application window, wrapped in an `Option` for initialization
     context: Option<DrawContext>, // The drawing context, wrapped in an `Option` for initialization
+    images: Vec<ImageIndex>,
 }
 
 impl<'window> ApplicationHandler for App {
@@ -194,7 +200,13 @@ impl<'window> ApplicationHandler for App {
 
             // Initialize the rendering context asynchronously.
             let window = window.clone();
-            self.context = Some(futures::executor::block_on(setup(window)));
+            (self.context, self.images) = {
+                let mut context = futures::executor::block_on(setup(window));
+                let vger = &mut context.vger;
+                let mut images = Vec::new();
+                images.push(vger.store_image("assets/images/rust.png"));
+                (Some(context), images)
+            };
         }
     }
 
@@ -244,7 +256,7 @@ impl<'window> ApplicationHandler for App {
                     // Begin rendering with `vger` and set the window size and scale factor
                     let vger = &mut context.vger;
                     vger.begin(width, height, scale);
-                    render(vger, [width, height]); // Call the render function
+                    render(vger, [width, height], &self.images); // Call the render function
 
                     // Create a texture view for the frame
                     let texture_view = frame

@@ -27,6 +27,10 @@ pub mod atlas;
 mod glyphs;
 use glyphs::GlyphCache;
 
+mod image_renderer;
+use image_renderer::ImageRenderer;
+pub use image_renderer::*;
+
 use wgpu::util::DeviceExt;
 
 #[allow(dead_code)]
@@ -37,11 +41,6 @@ struct Uniforms {
 
 #[derive(Copy, Clone, Debug)]
 pub struct PaintIndex {
-    index: usize,
-}
-
-#[derive(Copy, Clone, Debug)]
-pub struct ImageIndex {
     index: usize,
 }
 
@@ -98,6 +97,7 @@ pub struct Vger {
     image_bind_groups: Vec<Option<wgpu::BindGroup>>,
     image_bind_group_layout: wgpu::BindGroupLayout,
     default_image_bind_group: wgpu::BindGroup,
+    image_renderer: ImageRenderer,
 }
 
 impl Vger {
@@ -271,6 +271,8 @@ impl Vger {
 
         let layout = Layout::new(CoordinateSystem::PositiveYUp);
 
+        let image_renderer = ImageRenderer::new(device.clone(), queue.clone(), texture_format);
+
         Self {
             device,
             queue,
@@ -295,6 +297,7 @@ impl Vger {
             image_bind_groups: vec![],
             image_bind_group_layout,
             default_image_bind_group,
+            image_renderer,
         }
     }
 
@@ -317,6 +320,9 @@ impl Vger {
         self.xform_count = 0;
         self.scissor_count = 0;
         self.pen = LocalPoint::zero();
+
+        self.image_renderer
+            .begin(window_width, window_height, device_px_ratio);
     }
 
     /// Saves rendering state (transform and scissor rect).
@@ -345,17 +351,17 @@ impl Vger {
 
         self.glyph_cache.update(device, &mut encoder);
 
+        // Start the render pass
         {
             let mut rpass = encoder.begin_render_pass(render_pass);
 
+            // Vger's rendering commands
             rpass.set_pipeline(&self.pipeline);
-
             rpass.set_bind_group(
                 0,
                 &self.scenes[self.cur_scene].bind_groups[self.cur_layer],
-                &[], // dynamic offsets
+                &[],
             );
-
             rpass.set_bind_group(1, &self.uniform_bind_group, &[]);
             rpass.set_bind_group(2, &self.default_image_bind_group, &[]);
 
@@ -368,46 +374,35 @@ impl Vger {
                 let prim = &scene.prims[self.cur_layer][i];
                 let image_id = scene.paints[prim.paint as usize].image;
 
-                // Image changed, render.
                 if image_id >= 0 && image_id != current_texture {
-                    // println!("image changed: encoding {:?} prims", m);
                     if m > 0 {
-                        rpass.draw(
-                            /*vertices*/ 0..4,
-                            /*instances*/ start..(start + m),
-                        );
+                        rpass.draw(0..4, start..(start + m));
                     }
-
                     current_texture = image_id;
                     rpass.set_bind_group(
                         2,
                         self.image_bind_groups[image_id as usize].as_ref().unwrap(),
                         &[],
                     );
-
                     start += m;
                     m = 0;
                 }
-
                 m += 1;
             }
 
-            // println!("encoding {:?} prims", m);
-
             if m > 0 {
-                rpass.draw(
-                    /*vertices*/ 0..4,
-                    /*instances*/ start..(start + m),
-                )
+                rpass.draw(0..4, start..(start + m));
             }
+
+            // Image rendering commands
+            self.image_renderer.encode(&mut rpass);
         }
+
         queue.submit(Some(encoder.finish()));
 
-        // If we're getting close to full, reset the glyph cache.
+        // Glyph cache management remains unchanged
         let usage = self.glyph_cache.usage();
-        // println!("glyph cache usage {}", usage);
         if usage > 0.7 {
-            // println!("clearing glyph cache");
             self.glyph_cache.clear();
         }
     }
@@ -843,11 +838,13 @@ impl Vger {
 
     /// Add an image to the renderer.
     pub fn store_image(&mut self, path: &str) -> ImageIndex {
-        ImageIndex { index: 0 }
+        self.image_renderer.store_image(path)
     }
 
     /// Renders an image.
-    pub fn image(&mut self, image_index: ImageIndex) {}
+    pub fn image(&mut self, image_index: ImageIndex) -> &mut RenderImage {
+        self.image_renderer.image(image_index)
+    }
 
     fn add_xform(&mut self) -> usize {
         if self.xform_count < MAX_PRIMS {
